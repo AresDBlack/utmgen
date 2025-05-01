@@ -1,48 +1,64 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   TextField,
   Button,
   Typography,
-  Paper,
   Grid,
-  FormControl,
-  InputLabel,
   Select,
   MenuItem,
-  Alert,
+  FormControl,
+  InputLabel,
   SelectChangeEvent,
+  Paper,
   IconButton,
-  InputAdornment,
+  Tooltip,
+  Snackbar,
+  Alert,
+  CircularProgress,
+  InputAdornment
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
-import CheckIcon from '@mui/icons-material/Check';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import SaveIcon from '@mui/icons-material/Save';
+import { useTheme } from '@mui/material/styles';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { generateCampaignCode } from '../utils/campaignCodeGenerator';
 
 interface UTMGeneratorProps {
-  department: string;
+  department: 'marketing' | 'sales' | 'social';
 }
 
-const UTMGenerator = ({ department }: UTMGeneratorProps) => {
-  const [formData, setFormData] = useState({
-    url: '',
-    source: '',
-    medium: '',
+interface FormData {
+  campaign: string;
+  term: string;
+  source: string;
+  medium: string;
+  content: string;
+  url: string;
+}
+
+const UTMGenerator: React.FC<UTMGeneratorProps> = ({ department }) => {
+  const theme = useTheme();
+  const navigate = useNavigate();
+  const [formData, setFormData] = useState<FormData>({
     campaign: '',
     term: '',
+    source: '',
+    medium: '',
     content: '',
+    url: '',
   });
-
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement> | SelectChangeEvent) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name as string]: value,
-    }));
+    setFormData(prev => ({ ...prev, [name]: value }));
   };
 
   const generateUTM = () => {
@@ -71,252 +87,107 @@ const UTMGenerator = ({ department }: UTMGeneratorProps) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleSave = () => {
+    // Implementation of handleSave function
+  };
+
   return (
     <Box sx={{ maxWidth: 800, mx: 'auto', p: 3 }}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Typography 
-          variant="h4" 
-          gutterBottom
-          sx={{
-            background: 'linear-gradient(45deg, #6366f1, #ec4899)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            fontWeight: 700,
-          }}
-        >
-          {department} UTM Generator
+      <Paper elevation={3} sx={{ p: 3, borderRadius: 2 }}>
+        <Typography variant="h5" gutterBottom>
+          Generate UTM Parameters
         </Typography>
-        
-        {error && (
-          <Alert 
-            severity="error" 
-            sx={{ 
-              mb: 2,
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.2)',
-            }}
-          >
-            {error}
-          </Alert>
-        )}
-
-        <Paper 
-          elevation={0}
-          sx={{ 
-            p: 4,
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '12px',
-          }}
-        >
-          <Grid container spacing={3}>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Destination URL"
-                name="url"
-                value={formData.url}
-                onChange={handleChange}
-                required
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Source (utm_source)"
-                name="source"
+        <Box sx={{ display: 'grid', gap: 2 }}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Campaign Name"
+              value={formData.campaign}
+              onChange={handleChange}
+              name="campaign"
+              required
+            />
+            <TextField
+              fullWidth
+              label="Campaign Code"
+              value={formData.term}
+              onChange={handleChange}
+              name="term"
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={() => {}} size="small">
+                      <RefreshIcon />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Source</InputLabel>
+              <Select
                 value={formData.source}
                 onChange={handleChange}
-                placeholder="e.g., google, facebook, newsletter"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth>
-                <InputLabel>Medium (utm_medium)</InputLabel>
-                <Select
-                  name="medium"
-                  value={formData.medium}
-                  label="Medium (utm_medium)"
-                  onChange={handleChange}
-                  sx={{
-                    '& .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover .MuiOutlinedInput-notchedOutline': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
-                    },
-                  }}
-                >
-                  <MenuItem value="cpc">CPC</MenuItem>
-                  <MenuItem value="email">Email</MenuItem>
-                  <MenuItem value="social">Social</MenuItem>
-                  <MenuItem value="display">Display</MenuItem>
-                  <MenuItem value="referral">Referral</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Campaign (utm_campaign)"
-                name="campaign"
-                value={formData.campaign}
-                onChange={handleChange}
-                placeholder="e.g., summer_sale, product_launch"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Term (utm_term)"
-                name="term"
-                value={formData.term}
-                onChange={handleChange}
-                placeholder="e.g., keyword, ad_group"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="Content (utm_content)"
-                name="content"
-                value={formData.content}
-                onChange={handleChange}
-                placeholder="e.g., banner_ad, text_link"
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.1)',
-                    },
-                    '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.2)',
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
-                    },
-                  },
-                }}
-              />
-            </Grid>
-          </Grid>
-
-          <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
-            <Button
-              variant="contained"
-              onClick={generateUTM}
+                name="source"
+                required
+                label="Source"
+              >
+                <MenuItem value="google">Google</MenuItem>
+                <MenuItem value="facebook">Facebook</MenuItem>
+                <MenuItem value="newsletter">Newsletter</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
               fullWidth
-              sx={{
-                background: 'linear-gradient(45deg, #6366f1, #ec4899)',
-                '&:hover': {
-                  background: 'linear-gradient(45deg, #6366f1, #ec4899)',
-                  opacity: 0.9,
-                },
-              }}
-            >
-              Generate UTM Link
-            </Button>
+              label="Medium"
+              value={formData.medium}
+              onChange={handleChange}
+              name="medium"
+              required
+            />
           </Box>
-
-          {generatedUrl && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              <Box sx={{ mt: 4 }}>
-                <Typography variant="h6" gutterBottom>
-                  Generated UTM Link:
-                </Typography>
-                <Paper
-                  variant="outlined"
-                  sx={{
-                    p: 2,
-                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                    borderColor: 'rgba(255, 255, 255, 0.1)',
-                    wordBreak: 'break-all',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Typography sx={{ mr: 2 }}>{generatedUrl}</Typography>
-                  <IconButton
-                    onClick={copyToClipboard}
-                    sx={{
-                      color: copied ? '#10b981' : 'text.secondary',
-                      '&:hover': {
-                        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                      },
-                    }}
-                  >
-                    {copied ? <CheckIcon /> : <ContentCopyIcon />}
-                  </IconButton>
-                </Paper>
-              </Box>
-            </motion.div>
-          )}
-        </Paper>
-      </motion.div>
+          <TextField
+            fullWidth
+            label="Content"
+            value={formData.content}
+            onChange={handleChange}
+            name="content"
+          />
+          <TextField
+            fullWidth
+            label="Base URL"
+            value={formData.url}
+            onChange={handleChange}
+            name="url"
+            required
+          />
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            onClick={handleSave}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : 'Save'}
+          </Button>
+        </Box>
+      </Paper>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

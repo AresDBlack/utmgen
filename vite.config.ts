@@ -21,11 +21,18 @@ export default defineConfig({
       polyfill: true,
     },
     rollupOptions: {
-      external: ['jose'],
       output: {
         format: 'es',
+        inlineDynamicImports: true,
       },
     },
+    commonjsOptions: {
+      include: [/node_modules/],
+      transformMixedEsModules: true,
+    },
+  },
+  optimizeDeps: {
+    include: ['jose'],
   },
   server: {
     headers: {

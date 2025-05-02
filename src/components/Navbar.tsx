@@ -9,6 +9,7 @@ const Navbar = () => {
     { name: 'Marketing', path: '/marketing' },
     { name: 'Sales', path: '/sales' },
     { name: 'Social Media', path: '/social' },
+    { name: 'Others', path: '/others' },
   ];
 
   return (

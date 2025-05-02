@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import Marketing from './pages/Marketing';
 import Sales from './pages/Sales';
 import Social from './pages/Social';
+import Others from './pages/Others';
 import Navbar from './components/Navbar';
 import { Box } from '@mui/material';
 
@@ -97,7 +98,24 @@ const getTheme = (pathname: string) => {
           },
         },
       });
-    default:
+    case '/others':
+      return createTheme({
+        ...baseTheme,
+        palette: {
+          ...baseTheme.palette,
+          primary: {
+            main: '#8b5cf6',
+            light: '#a78bfa',
+            dark: '#7c3aed',
+          },
+          secondary: {
+            main: '#10b981',
+            light: '#34d399',
+            dark: '#059669',
+          },
+        },
+      });
+    case '/':
       return createTheme({
         ...baseTheme,
         palette: {
@@ -114,6 +132,8 @@ const getTheme = (pathname: string) => {
           },
         },
       });
+    default:
+      return createTheme(baseTheme);
   }
 };
 
@@ -128,6 +148,10 @@ const GradientLine = () => {
         return 'linear-gradient(45deg, #10b981, #3b82f6)';
       case '/social':
         return 'linear-gradient(45deg, #f59e0b, #ef4444)';
+      case '/others':
+        return 'linear-gradient(45deg, #8b5cf6, #10b981)';
+      case '/':
+        return 'linear-gradient(45deg, #8b5cf6, #ec4899)';
       default:
         return 'linear-gradient(45deg, #8b5cf6, #ec4899)';
     }
@@ -158,24 +182,36 @@ const AppContent = () => {
       <GradientLine />
       <Box
         sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1000,
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
           background: 'rgba(0, 0, 0, 0.8)',
           backdropFilter: 'blur(10px)',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          height: '100vh',
         }}
       >
-        <Navbar />
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/marketing" element={<Marketing />} />
-          <Route path="/sales" element={<Sales />} />
-          <Route path="/social" element={<Social />} />
-        </Routes>
+        <Box
+          sx={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1000,
+            background: 'rgba(0, 0, 0, 0.8)',
+            backdropFilter: 'blur(10px)',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          }}
+        >
+          <Navbar />
+        </Box>
+        <Box sx={{ mt: '64px', flex: 1 }}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/marketing" element={<Marketing />} />
+            <Route path="/sales" element={<Sales />} />
+            <Route path="/social" element={<Social />} />
+            <Route path="/others" element={<Others />} />
+          </Routes>
+        </Box>
       </Box>
     </ThemeProvider>
   );

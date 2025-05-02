@@ -26,7 +26,7 @@ export interface SourceType {
   source: string;
 }
 
-export interface UTMRecord {
+export type UTMRecord = {
   utmId: string;
   url: string;
   client: string;
@@ -35,9 +35,9 @@ export interface UTMRecord {
   sourceType: string;
   identifier: string;
   utmUrl: string;
+  department: 'marketing' | 'sales' | 'social' | 'others';
   createdAt: string;
-  department: 'marketing' | 'sales' | 'social';
-}
+};
 
 class GoogleSheetsService {
   private readonly spreadsheetId: string;
@@ -403,7 +403,7 @@ class GoogleSheetsService {
         identifier,
         utmUrl,
         createdAt,
-        department: department as 'marketing' | 'sales' | 'social',
+        department: department as 'marketing' | 'sales' | 'social' | 'others',
       }));
 
       this.cache.utmRecords = {

@@ -22,11 +22,11 @@ import CheckIcon from '@mui/icons-material/Check';
 import SearchIcon from '@mui/icons-material/Search';
 import { motion, AnimatePresence } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
-import type { UTMRecord } from "../services/googleSheets";
+import type { UTMRecord, Client, Campaign, SourceType } from "../services/googleSheets";
 
 
 interface UTMLinkListProps {
-  department: 'marketing' | 'sales' | 'social';
+  department: 'marketing' | 'sales' | 'social' | 'others';
   reloadTrigger?: number;
 }
 
@@ -44,6 +44,9 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<Record<string, boolean>>({});
+  const [clientsData, setClientsData] = useState<Client[]>([]);
+  const [campaignsData, setCampaignsData] = useState<Campaign[]>([]);
+  const [sourceTypesData, setSourceTypesData] = useState<SourceType[]>([]);
   const [filters, setFilters] = useState<FilterState>({
     department: department,
     client: '',
@@ -54,11 +57,31 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   });
 
   // Get unique values for filters
-  const departments = Array.from(new Set(links.map(link => link.department).filter(Boolean))) as ('marketing' | 'sales' | 'social')[];
-  const clients = Array.from(new Set(links.map(link => link.client).filter(Boolean)));
-  const campaigns = Array.from(new Set(links.map(link => link.campaign).filter(Boolean)));
-  const sources = Array.from(new Set(links.map(link => link.source).filter(Boolean)));
-  const sourceTypes = Array.from(new Set(links.map(link => link.sourceType).filter(Boolean)));
+  const departments = Array.from(new Set(links.map(link => link.department).filter(Boolean))) as ('marketing' | 'sales' | 'social' | 'others')[];
+  const uniqueClients = Array.from(new Set(links.map(link => link.client)));
+  const uniqueCampaigns = Array.from(new Set(links.map(link => link.campaign)));
+  const uniqueSources = Array.from(new Set(links.map(link => link.source)));
+  const uniqueSourceTypes = Array.from(new Set(links.map(link => link.sourceType)));
+
+  // Load all necessary data
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [clients, campaigns, sourceTypes] = await Promise.all([
+          googleSheetsService.getClients(),
+          googleSheetsService.getCampaigns(),
+          googleSheetsService.getSourceTypes(),
+        ]);
+        setClientsData(clients);
+        setCampaignsData(campaigns);
+        setSourceTypesData(sourceTypes);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+
+    loadData();
+  }, []);
 
   const loadLinks = async () => {
     try {
@@ -111,6 +134,20 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     }
     return true;
   });
+
+  // Helper function to get name from ID
+  const getNameFromId = (id: string, type: 'client' | 'campaign' | 'sourceType'): string => {
+    switch (type) {
+      case 'client':
+        return clientsData.find(c => c.clientId === id)?.name || id;
+      case 'campaign':
+        return campaignsData.find(c => c.campaignId === id)?.name || id;
+      case 'sourceType':
+        return sourceTypesData.find(s => s.sourceTypeId === id)?.name || id;
+      default:
+        return id;
+    }
+  };
 
   if (loading) {
     return (
@@ -183,29 +220,35 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                   label="Client"
                 >
                   <MenuItem value="">All</MenuItem>
-                  {clients.map(client => (
-                    <MenuItem key={client} value={client}>
-                      {client}
-                    </MenuItem>
-                  ))}
+                  {uniqueClients.map(clientId => {
+                    const client = clientsData.find(c => c.clientId === clientId);
+                    return (
+                      <MenuItem key={clientId} value={clientId}>
+                        {client?.name || clientId}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
               </FormControl>
             </Box>
             <Box>
               <FormControl fullWidth size="small">
-                <InputLabel>Campaign Name</InputLabel>
+                <InputLabel>Campaign</InputLabel>
                 <Select
                   name="campaign"
                   value={filters.campaign}
                   onChange={handleFilterChange}
-                  label="Campaign Name"
+                  label="Campaign"
                 >
                   <MenuItem value="">All</MenuItem>
-                  {campaigns.map(campaign => (
-                    <MenuItem key={campaign} value={campaign}>
-                      {campaign}
-                    </MenuItem>
-                  ))}
+                  {uniqueCampaigns.map(campaignId => {
+                    const campaign = campaignsData.find(c => c.campaignId === campaignId);
+                    return (
+                      <MenuItem key={campaignId} value={campaignId}>
+                        {campaign?.name || campaignId}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
               </FormControl>
             </Box>
@@ -219,7 +262,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                   label="Source Name"
                 >
                   <MenuItem value="">All</MenuItem>
-                  {sources.map(source => (
+                  {uniqueSources.map(source => (
                     <MenuItem key={source} value={source}>
                       {source}
                     </MenuItem>
@@ -229,19 +272,22 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
             </Box>
             <Box>
               <FormControl fullWidth size="small">
-                <InputLabel>Source Type Name</InputLabel>
+                <InputLabel>Source Type</InputLabel>
                 <Select
                   name="sourceType"
                   value={filters.sourceType}
                   onChange={handleFilterChange}
-                  label="Source Type Name"
+                  label="Source Type"
                 >
                   <MenuItem value="">All</MenuItem>
-                  {sourceTypes.map(type => (
-                    <MenuItem key={type} value={type}>
-                      {type}
-                    </MenuItem>
-                  ))}
+                  {uniqueSourceTypes.map(sourceTypeId => {
+                    const sourceType = sourceTypesData.find(s => s.sourceTypeId === sourceTypeId);
+                    return (
+                      <MenuItem key={sourceTypeId} value={sourceTypeId}>
+                        {sourceType?.name || sourceTypeId}
+                      </MenuItem>
+                    );
+                  })}
                 </Select>
               </FormControl>
             </Box>
@@ -298,7 +344,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                         <Chip 
-                          label={link.client} 
+                          label={getNameFromId(link.client, 'client')} 
                           size="small" 
                           sx={{ 
                             background: 'rgba(99, 102, 241, 0.1)',
@@ -306,7 +352,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                           }} 
                         />
                         <Chip 
-                          label={link.campaign} 
+                          label={getNameFromId(link.campaign, 'campaign')} 
                           size="small" 
                           sx={{ 
                             background: 'rgba(16, 185, 129, 0.1)',
@@ -314,7 +360,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                           }} 
                         />
                         <Chip 
-                          label={link.sourceType} 
+                          label={getNameFromId(link.sourceType, 'sourceType')} 
                           size="small" 
                           sx={{ 
                             background: 'rgba(245, 158, 11, 0.1)',

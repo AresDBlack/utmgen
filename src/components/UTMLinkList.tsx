@@ -53,10 +53,10 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   });
 
   // Get unique values for filters
-  const departments = Array.from(new Set(links.map(link => link.department)));
-  const clients = Array.from(new Set(links.map(link => link.client)));
-  const campaigns = Array.from(new Set(links.map(link => link.campaign)));
-  const sourceTypes = Array.from(new Set(links.map(link => link.sourceType)));
+  const departments = Array.from(new Set(links.map(link => link.department).filter(Boolean))) as ('marketing' | 'sales' | 'social')[];
+  const clients = Array.from(new Set(links.map(link => link.client).filter(Boolean)));
+  const campaigns = Array.from(new Set(links.map(link => link.campaign).filter(Boolean)));
+  const sourceTypes = Array.from(new Set(links.map(link => link.sourceType).filter(Boolean)));
 
   const loadLinks = async () => {
     try {

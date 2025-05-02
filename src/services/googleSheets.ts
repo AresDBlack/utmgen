@@ -177,18 +177,36 @@ class GoogleSheetsService {
 
       const data = await response.json();
       const rows = data.values || [];
-      return rows.map((row: string[], index: number) => ({
-        utmId: row[0],
-        url: row[1],
-        client: row[2],
-        campaign: row[3],
-        source: row[4],
-        sourceType: row[5],
-        identifier: row[6],
-        utmUrl: row[7],
-        createdAt: row[8],
-        department: row[9] as 'marketing' | 'sales' | 'social'
-      }));
+      return rows.map((row: string[], index: number) => {
+        const department = row[8] as 'marketing' | 'sales' | 'social';
+        if (!department || !['marketing', 'sales', 'social'].includes(department)) {
+          console.warn(`Invalid department value found: ${department}, defaulting to 'marketing'`);
+          return {
+            utmId: `utm-${index + 1}`,
+            url: row[0] || '',
+            client: row[1] || '',
+            campaign: row[2] || '',
+            source: row[3] || '',
+            sourceType: row[4] || '',
+            identifier: row[5] || '',
+            utmUrl: row[6] || '',
+            createdAt: row[7] || new Date().toISOString(),
+            department: 'marketing'
+          };
+        }
+        return {
+          utmId: `utm-${index + 1}`,
+          url: row[0] || '',
+          client: row[1] || '',
+          campaign: row[2] || '',
+          source: row[3] || '',
+          sourceType: row[4] || '',
+          identifier: row[5] || '',
+          utmUrl: row[6] || '',
+          createdAt: row[7] || new Date().toISOString(),
+          department
+        };
+      });
     } catch (error) {
       console.error('Error in getUTMRecords:', error);
       throw error;

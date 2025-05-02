@@ -21,7 +21,6 @@ export default defineConfig({
       polyfill: true,
     },
     rollupOptions: {
-      external: ['jose'],
       output: {
         format: 'es',
       },

@@ -17,6 +17,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
@@ -385,7 +386,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   },
                 }}
@@ -409,7 +410,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   }}
                 >
@@ -438,8 +439,8 @@ const Social = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#ec4899',
-                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            color: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
                           },
                         }}
                       >
@@ -456,7 +457,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   }}
                 >
@@ -471,12 +472,12 @@ const Social = () => {
 
             <Box>
               <FormControl fullWidth>
-                <InputLabel>Social Media</InputLabel>
+                <InputLabel>Social Media Platform</InputLabel>
                 <Select
                   name="source"
                   value={formData.source}
                   onChange={handleChange}
-                  label="Social Media"
+                  label="Social Media Platform"
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -486,7 +487,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   }}
                 >
@@ -501,12 +502,12 @@ const Social = () => {
 
             <Box>
               <FormControl fullWidth>
-                <InputLabel>Content Type</InputLabel>
+                <InputLabel>Source Type</InputLabel>
                 <Select
                   name="sourceType"
                   value={formData.sourceType}
                   onChange={handleChange}
-                  label="Content Type"
+                  label="Source Type"
                   endAdornment={
                     <InputAdornment position="end">
                       <IconButton 
@@ -515,8 +516,8 @@ const Social = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#ec4899',
-                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
+                            color: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
                           },
                         }}
                       >
@@ -533,7 +534,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   }}
                 >
@@ -546,7 +547,7 @@ const Social = () => {
               </FormControl>
             </Box>
 
-            <Box>
+            <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' } }}>
               <TextField
                 fullWidth
                 name="identifier"
@@ -566,7 +567,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#ec4899',
+                      borderColor: '#f59e0b',
                     },
                   },
                 }}
@@ -582,17 +583,17 @@ const Social = () => {
                   fullWidth
                   size="small"
                   sx={{
-                    background: 'linear-gradient(45deg, #ec4899, #8b5cf6)',
+                    background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
                     borderRadius: '8px',
                     py: 1.5,
                     textTransform: 'none',
                     fontSize: '1rem',
                     fontWeight: 600,
                     '&:hover': {
-                      background: 'linear-gradient(45deg, #ec4899, #8b5cf6)',
+                      background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
                       opacity: 0.9,
                       transform: 'translateY(-1px)',
-                      boxShadow: '0 4px 12px rgba(236, 72, 153, 0.2)',
+                      boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)',
                     },
                     transition: 'all 0.2s ease-in-out',
                   }}
@@ -644,7 +645,7 @@ const Social = () => {
         </Paper>
       </motion.div>
 
-      {/* New Content Type Dialog */}
+      {/* New Source Type Dialog */}
       <Dialog 
         open={isNewSourceTypeDialogOpen} 
         onClose={() => setIsNewSourceTypeDialogOpen(false)}
@@ -656,12 +657,12 @@ const Social = () => {
           },
         }}
       >
-        <DialogTitle>Add New Content Type</DialogTitle>
+        <DialogTitle>Add New Source Type</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Content Type Name"
+            label="Source Type Name"
             fullWidth
             value={newSourceTypeName}
             onChange={(e) => setNewSourceTypeName(e.target.value)}
@@ -675,14 +676,14 @@ const Social = () => {
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: '#6366f1',
+                  borderColor: '#f59e0b',
                 },
               },
             }}
           />
           <TextField
             margin="dense"
-            label="Content Type Code"
+            label="Source Type Code"
             fullWidth
             value={newSourceTypeCode}
             onChange={(e) => setNewSourceTypeCode(e.target.value)}
@@ -697,7 +698,7 @@ const Social = () => {
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: '#6366f1',
+                  borderColor: '#f59e0b',
                 },
               },
             }}
@@ -752,7 +753,7 @@ const Social = () => {
                   borderColor: 'rgba(255, 255, 255, 0.2)',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: '#6366f1',
+                  borderColor: '#f59e0b',
                 },
               },
             }}

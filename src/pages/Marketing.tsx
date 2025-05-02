@@ -24,24 +24,8 @@ import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
-import type { Campaign, SourceType } from '../services/googleSheets';
+import type { Campaign, SourceType, Client, Source } from '../services/googleSheets';
 import UTMLinkList from '../components/UTMLinkList';
-
-// Predefined data
-const CLIENTS = [
-  { id: 'danny', name: 'Danny Singson' },
-  { id: 'shaun', name: 'Shaun T' },
-  { id: 'nadine', name: 'Nadine' },
-];
-
-
-
-const SOURCES = [
-  { id: 'email', name: 'Email', abbr: 'E' },
-  { id: 'sms', name: 'SMS', abbr: 'S' },
-  { id: 'ad', name: 'Ad', abbr: 'A' },
-];
-
 
 const Marketing = () => {
   const [formData, setFormData] = useState({
@@ -59,25 +43,36 @@ const Marketing = () => {
   const [copied, setCopied] = useState(false);
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [availableSourceTypes, setAvailableSourceTypes] = useState<SourceType[]>([]);
+  const [availableClients, setAvailableClients] = useState<Client[]>([]);
+  const [availableSources, setAvailableSources] = useState<Source[]>([]);
 
   // Dialog states
   const [isNewCampaignDialogOpen, setIsNewCampaignDialogOpen] = useState(false);
   const [isNewSourceTypeDialogOpen, setIsNewSourceTypeDialogOpen] = useState(false);
+  const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
+  const [isNewSourceDialogOpen, setIsNewSourceDialogOpen] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
   const [newSourceTypeName, setNewSourceTypeName] = useState('');
   const [newSourceTypeAbbr, setNewSourceTypeAbbr] = useState('');
+  const [newClientName, setNewClientName] = useState('');
+  const [newSourceName, setNewSourceName] = useState('');
+  const [newSourceAbbr, setNewSourceAbbr] = useState('');
 
   // Load data from Google Sheets
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [campaigns, sourceTypes] = await Promise.all([
+        const [campaigns, sourceTypes, clients, sources] = await Promise.all([
           googleSheetsService.getCampaigns(),
           googleSheetsService.getSourceTypes(),
+          googleSheetsService.getClients(),
+          googleSheetsService.getSources(),
         ]);
 
         setAvailableCampaigns(campaigns);
         setAvailableSourceTypes(sourceTypes);
+        setAvailableClients(clients);
+        setAvailableSources(sources);
       } catch (error) {
         console.error('Error loading data:', error);
         setError('Failed to load data from Google Sheets');
@@ -89,21 +84,25 @@ const Marketing = () => {
 
   // Update available campaigns when client changes
   useEffect(() => {
-    if (formData.client) {
-      const filteredCampaigns = availableCampaigns.filter(c => c.clientId === formData.client);
-      setAvailableCampaigns(filteredCampaigns);
-      setFormData(prev => ({ ...prev, campaign: '' }));
-    } else {
-      const loadAllCampaigns = async () => {
+    const loadCampaigns = async () => {
+      if (formData.client) {
         try {
           const campaigns = await googleSheetsService.getCampaigns();
-          setAvailableCampaigns(campaigns);
+          const filteredCampaigns = campaigns.filter(c => c.clientId === formData.client);
+          setAvailableCampaigns(filteredCampaigns);
+          // Reset campaign selection when client changes
+          setFormData(prev => ({ ...prev, campaign: '' }));
         } catch (error) {
-          console.error('Error loading all campaigns:', error);
+          console.error('Error loading campaigns:', error);
+          setError('Failed to load campaigns');
         }
-      };
-      loadAllCampaigns();
-    }
+      } else {
+        setAvailableCampaigns([]);
+        setFormData(prev => ({ ...prev, campaign: '' }));
+      }
+    };
+
+    loadCampaigns();
   }, [formData.client]);
 
   // Update available source types when source changes
@@ -111,7 +110,7 @@ const Marketing = () => {
     if (formData.source) {
       const filteredTypes = availableSourceTypes.filter(t => t.source === formData.source);
       setAvailableSourceTypes(filteredTypes);
-      setFormData(prev => ({ ...prev, sourceType: '' }));
+      setFormData(prev => ({ ...prev, sourceType: '', identifier: '' }));
     } else {
       const loadAllSourceTypes = async () => {
         try {
@@ -127,30 +126,42 @@ const Marketing = () => {
 
   // Calculate identifier when source type changes
   useEffect(() => {
-    if (formData.sourceType && formData.source) {
-      const sourceType = availableSourceTypes.find(t => t.sourceTypeId === formData.sourceType);
-      if (sourceType) {
-        // Get source count
-        const sourceCount = availableSourceTypes.filter(t => t.source === formData.source).length + 1;
-        
-        // Get source type count for this specific source type
-        const sourceTypeCount = availableSourceTypes.filter(t => 
-          t.source === formData.source && t.sourceTypeId === formData.sourceType
-        ).length + 1;
-
-        // First letter of source
-        const sourceFirstLetter = formData.source.charAt(0).toUpperCase();
-        
-        // Create identifier
-        const identifier = `${sourceFirstLetter}${sourceCount}${sourceType.abbr}${sourceTypeCount}`;
-        
-        setFormData(prev => ({
-          ...prev,
-          identifier,
-        }));
+    const calculateIdentifier = async () => {
+      if (formData.sourceType && formData.source) {
+        try {
+          // Get all UTM records to count occurrences
+          const utmRecords = await googleSheetsService.getUTMRecords();
+          
+          // Get the selected source and source type
+          const selectedSource = availableSources.find(s => s.sourceId === formData.source);
+          const selectedSourceType = availableSourceTypes.find(t => t.sourceTypeId === formData.sourceType);
+          
+          if (selectedSource && selectedSourceType) {
+            // Count occurrences of this source
+            const sourceCount = utmRecords.filter(record => record.source === formData.source).length + 1;
+            
+            // Count occurrences of this source type for this source
+            const sourceTypeCount = utmRecords.filter(record => 
+              record.source === formData.source && record.sourceType === formData.sourceType
+            ).length + 1;
+            
+            // Create identifier
+            const identifier = `${selectedSource.abbr}${sourceCount}${selectedSourceType.abbr}${sourceTypeCount}`;
+            
+            setFormData(prev => ({
+              ...prev,
+              identifier,
+            }));
+          }
+        } catch (error) {
+          console.error('Error calculating identifier:', error);
+          setError('Failed to calculate identifier');
+        }
       }
-    }
-  }, [formData.sourceType, formData.source, availableSourceTypes]);
+    };
+
+    calculateIdentifier();
+  }, [formData.sourceType, formData.source, availableSources, availableSourceTypes]);
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;
@@ -229,6 +240,44 @@ const Marketing = () => {
     } catch (error) {
       console.error('Error creating source type:', error);
       setError('Failed to create new source type');
+    }
+  };
+
+  const handleCreateNewClient = async () => {
+    if (!newClientName) return;
+
+    try {
+      const newClient = await googleSheetsService.addClient({
+        name: newClientName,
+      });
+
+      setAvailableClients(prev => [...prev, newClient]);
+      setFormData(prev => ({ ...prev, client: newClient.clientId }));
+      setNewClientName('');
+      setIsNewClientDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating client:', error);
+      setError('Failed to create new client');
+    }
+  };
+
+  const handleCreateNewSource = async () => {
+    if (!newSourceName || !newSourceAbbr) return;
+
+    try {
+      const newSource = await googleSheetsService.addSource({
+        name: newSourceName,
+        abbr: newSourceAbbr.toUpperCase(),
+      });
+
+      setAvailableSources(prev => [...prev, newSource]);
+      setFormData(prev => ({ ...prev, source: newSource.sourceId }));
+      setNewSourceName('');
+      setNewSourceAbbr('');
+      setIsNewSourceDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating source:', error);
+      setError('Failed to create new source');
     }
   };
 
@@ -405,6 +454,23 @@ const Marketing = () => {
                   value={formData.client}
                   onChange={handleChange}
                   label="Client"
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton 
+                        onClick={() => setIsNewClientDialogOpen(true)} 
+                        size="small"
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          '&:hover': {
+                            color: '#6366f1',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                          },
+                        }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  }
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -418,8 +484,8 @@ const Marketing = () => {
                     },
                   }}
                 >
-                  {CLIENTS.map((client) => (
-                    <MenuItem key={client.id} value={client.id}>
+                  {availableClients.map((client) => (
+                    <MenuItem key={client.clientId} value={client.clientId}>
                       {client.name}
                     </MenuItem>
                   ))}
@@ -435,18 +501,12 @@ const Marketing = () => {
                   value={formData.campaign}
                   onChange={handleChange}
                   label="Campaign"
+                  disabled={!formData.client}
                   endAdornment={
                     <InputAdornment position="end">
                       <IconButton 
                         onClick={() => setIsNewCampaignDialogOpen(true)} 
-                        size="small"
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                          },
-                        }}
+                        disabled={!formData.client}
                       >
                         <AddIcon />
                       </IconButton>
@@ -482,6 +542,17 @@ const Marketing = () => {
                   value={formData.source}
                   onChange={handleChange}
                   label="Source"
+                  disabled={!formData.client}
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton 
+                        onClick={() => setIsNewSourceDialogOpen(true)} 
+                        disabled={!formData.client}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  }
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -495,8 +566,8 @@ const Marketing = () => {
                     },
                   }}
                 >
-                  {SOURCES.map((source) => (
-                    <MenuItem key={source.id} value={source.id}>
+                  {availableSources.map((source) => (
+                    <MenuItem key={source.sourceId} value={source.sourceId}>
                       {source.name}
                     </MenuItem>
                   ))}
@@ -512,18 +583,12 @@ const Marketing = () => {
                   value={formData.sourceType}
                   onChange={handleChange}
                   label="Source Type"
+                  disabled={!formData.client || !formData.source}
                   endAdornment={
                     <InputAdornment position="end">
                       <IconButton 
                         onClick={() => setIsNewSourceTypeDialogOpen(true)} 
-                        size="small"
-                        sx={{
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                          },
-                        }}
+                        disabled={!formData.client || !formData.source}
                       >
                         <AddIcon />
                       </IconButton>
@@ -777,6 +842,97 @@ const Marketing = () => {
             }}
           >
             Create
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* New Client Dialog */}
+      <Dialog 
+        open={isNewClientDialogOpen} 
+        onClose={() => setIsNewClientDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            background: 'rgba(30, 41, 59, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          },
+        }}
+      >
+        <DialogTitle>Add New Client</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Client Name"
+            fullWidth
+            value={newClientName}
+            onChange={(e) => setNewClientName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsNewClientDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCreateNewClient}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(45deg, #6366f1, #ec4899)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #6366f1, #ec4899)',
+                opacity: 0.9,
+              },
+            }}
+          >
+            Add Client
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* New Source Dialog */}
+      <Dialog 
+        open={isNewSourceDialogOpen} 
+        onClose={() => setIsNewSourceDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            background: 'rgba(30, 41, 59, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          },
+        }}
+      >
+        <DialogTitle>Add New Source</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Source Name"
+            fullWidth
+            value={newSourceName}
+            onChange={(e) => setNewSourceName(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Source Abbreviation"
+            fullWidth
+            value={newSourceAbbr}
+            onChange={(e) => setNewSourceAbbr(e.target.value)}
+            inputProps={{ maxLength: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsNewSourceDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCreateNewSource}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(45deg, #6366f1, #ec4899)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #6366f1, #ec4899)',
+                opacity: 0.9,
+              },
+            }}
+          >
+            Add Source
           </Button>
         </DialogActions>
       </Dialog>

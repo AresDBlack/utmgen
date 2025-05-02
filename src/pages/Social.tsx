@@ -24,16 +24,10 @@ import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
-import type { Campaign, SourceType } from '../services/googleSheets';
+import type { Campaign, SourceType, Client } from '../services/googleSheets';
 import UTMLinkList from '../components/UTMLinkList';
 
 // Predefined data
-const CLIENTS = [
-  { id: 'danny', name: 'Danny Singson' },
-  { id: 'shaun', name: 'Shaun T' },
-  { id: 'nadine', name: 'Nadine' },
-];
-
 const SOCIAL_MEDIA_SOURCES = [
   { id: 'instagram', name: 'Instagram' },
   { id: 'facebook', name: 'Facebook' },
@@ -41,6 +35,13 @@ const SOCIAL_MEDIA_SOURCES = [
   { id: 'tiktok', name: 'TikTok' },
   { id: 'twitter', name: 'Twitter' },
   { id: 'youtube', name: 'YouTube' },
+  { id: 'snapchat', name: 'Snapchat' },
+  { id: 'pinterest', name: 'Pinterest' },
+  { id: 'reddit', name: 'Reddit' },
+  { id: 'twitch', name: 'Twitch' },
+  { id: 'discord', name: 'Discord' },
+  { id: 'skool', name: 'Skool' },
+  
 ];
 
 const Social = () => {
@@ -58,25 +59,29 @@ const Social = () => {
   const [copied, setCopied] = useState(false);
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [availableSourceTypes, setAvailableSourceTypes] = useState<SourceType[]>([]);
+  const [availableClients, setAvailableClients] = useState<Client[]>([]);
   const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Dialog states
   const [isNewSourceTypeDialogOpen, setIsNewSourceTypeDialogOpen] = useState(false);
   const [isNewCampaignDialogOpen, setIsNewCampaignDialogOpen] = useState(false);
+  const [isNewClientDialogOpen, setIsNewClientDialogOpen] = useState(false);
   const [newSourceTypeName, setNewSourceTypeName] = useState('');
   const [newSourceTypeCode, setNewSourceTypeCode] = useState('');
   const [newCampaignName, setNewCampaignName] = useState('');
-
+  const [newClientName, setNewClientName] = useState('');
 
   // Load data from Google Sheets
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [campaigns, sourceTypes] = await Promise.all([
+        const [clients, campaigns, sourceTypes] = await Promise.all([
+          googleSheetsService.getClients(),
           googleSheetsService.getCampaigns(),
           googleSheetsService.getSourceTypes(),
         ]);
 
+        setAvailableClients(clients);
         setAvailableCampaigns(campaigns);
         setAvailableSourceTypes(sourceTypes);
       } catch (error) {
@@ -117,21 +122,25 @@ const Social = () => {
 
   // Update available campaigns when client changes
   useEffect(() => {
-    if (formData.client) {
-      const filteredCampaigns = availableCampaigns.filter(c => c.clientId === formData.client);
-      setAvailableCampaigns(filteredCampaigns);
-      setFormData(prev => ({ ...prev, campaign: '' }));
-    } else {
-      const loadAllCampaigns = async () => {
+    const loadCampaigns = async () => {
+      if (formData.client) {
         try {
           const campaigns = await googleSheetsService.getCampaigns();
-          setAvailableCampaigns(campaigns);
+          const filteredCampaigns = campaigns.filter(c => c.clientId === formData.client);
+          setAvailableCampaigns(filteredCampaigns);
+          // Reset campaign selection when client changes
+          setFormData(prev => ({ ...prev, campaign: '' }));
         } catch (error) {
-          console.error('Error loading all campaigns:', error);
+          console.error('Error loading campaigns:', error);
+          setError('Failed to load campaigns');
         }
-      };
-      loadAllCampaigns();
-    }
+      } else {
+        setAvailableCampaigns([]);
+        setFormData(prev => ({ ...prev, campaign: '' }));
+      }
+    };
+
+    loadCampaigns();
   }, [formData.client]);
 
   // Filter source types based on selected source
@@ -151,9 +160,11 @@ const Social = () => {
       setFormData(prev => ({ ...prev, campaign: '' }));
       try {
         const campaigns = await googleSheetsService.getCampaigns();
-        setAvailableCampaigns(campaigns.filter(c => c.clientId === value));
+        const filteredCampaigns = campaigns.filter(c => c.clientId === value);
+        setAvailableCampaigns(filteredCampaigns);
       } catch (error) {
         console.error('Error loading campaigns:', error);
+        setError('Failed to load campaigns');
       }
     } else if (name === 'source') {
       setFormData(prev => ({ ...prev, sourceType: '' }));
@@ -216,6 +227,24 @@ const Social = () => {
     } catch (error) {
       console.error('Error creating campaign:', error);
       setError('Failed to create new campaign');
+    }
+  };
+
+  const handleCreateNewClient = async () => {
+    if (!newClientName) return;
+
+    try {
+      const newClient = await googleSheetsService.addClient({
+        name: newClientName,
+      });
+
+      setAvailableClients(prev => [...prev, newClient]);
+      setFormData(prev => ({ ...prev, client: newClient.clientId }));
+      setNewClientName('');
+      setIsNewClientDialogOpen(false);
+    } catch (error) {
+      console.error('Error creating client:', error);
+      setError('Failed to create new client');
     }
   };
 
@@ -375,6 +404,7 @@ const Social = () => {
                 onChange={handleChange}
                 placeholder="https://example.com"
                 size="small"
+                disabled={!formData.client}
                 sx={{
                   minWidth: '300px',
                   '& .MuiOutlinedInput-root': {
@@ -401,6 +431,23 @@ const Social = () => {
                   value={formData.client}
                   onChange={handleChange}
                   label="Client"
+                  endAdornment={
+                    <InputAdornment position="end">
+                      <IconButton 
+                        onClick={() => setIsNewClientDialogOpen(true)} 
+                        size="small"
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          '&:hover': {
+                            color: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                          },
+                        }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                    </InputAdornment>
+                  }
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -414,8 +461,8 @@ const Social = () => {
                     },
                   }}
                 >
-                  {CLIENTS.map((client) => (
-                    <MenuItem key={client.id} value={client.id}>
+                  {availableClients.map((client: Client) => (
+                    <MenuItem key={client.clientId} value={client.clientId}>
                       {client.name}
                     </MenuItem>
                   ))}
@@ -431,11 +478,13 @@ const Social = () => {
                   value={formData.campaign}
                   onChange={handleChange}
                   label="Campaign"
+                  disabled={!formData.client}
                   endAdornment={
                     <InputAdornment position="end">
                       <IconButton 
                         onClick={() => setIsNewCampaignDialogOpen(true)} 
                         size="small"
+                        disabled={!formData.client}
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
@@ -478,6 +527,7 @@ const Social = () => {
                   value={formData.source}
                   onChange={handleChange}
                   label="Social Media Platform"
+                  disabled={!formData.client}
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -508,11 +558,13 @@ const Social = () => {
                   value={formData.sourceType}
                   onChange={handleChange}
                   label="Source Type"
+                  disabled={!formData.client || !formData.source}
                   endAdornment={
                     <InputAdornment position="end">
                       <IconButton 
                         onClick={() => setIsNewSourceTypeDialogOpen(true)} 
                         size="small"
+                        disabled={!formData.client || !formData.source}
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
@@ -556,6 +608,7 @@ const Social = () => {
                 onChange={handleChange}
                 placeholder="Enter identifier"
                 size="small"
+                disabled={!formData.client || !formData.source || !formData.sourceType}
                 sx={{
                   minWidth: '300px',
                   '& .MuiOutlinedInput-root': {
@@ -582,6 +635,7 @@ const Social = () => {
                   onClick={generateUTM}
                   fullWidth
                   size="small"
+                  disabled={!formData.client || !formData.campaign || !formData.source || !formData.sourceType || !formData.identifier || !formData.url}
                   sx={{
                     background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
                     borderRadius: '8px',
@@ -774,6 +828,47 @@ const Social = () => {
             }}
           >
             Add
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* New Client Dialog */}
+      <Dialog 
+        open={isNewClientDialogOpen} 
+        onClose={() => setIsNewClientDialogOpen(false)}
+        PaperProps={{
+          sx: {
+            background: 'rgba(30, 41, 59, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          },
+        }}
+      >
+        <DialogTitle>Add New Client</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Client Name"
+            fullWidth
+            value={newClientName}
+            onChange={(e) => setNewClientName(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsNewClientDialogOpen(false)}>Cancel</Button>
+          <Button 
+            onClick={handleCreateNewClient}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
+                opacity: 0.9,
+              },
+            }}
+          >
+            Add Client
           </Button>
         </DialogActions>
       </Dialog>

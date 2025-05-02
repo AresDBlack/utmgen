@@ -17,4 +17,21 @@ export default defineConfig({
     'process.stdout': JSON.stringify({ isTTY: false }),
     'process.stderr': JSON.stringify({ isTTY: false }),
   },
+  build: {
+    target: 'esnext',
+    modulePreload: {
+      polyfill: true,
+    },
+    rollupOptions: {
+      output: {
+        format: 'es',
+      },
+    },
+  },
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
 })

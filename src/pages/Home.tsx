@@ -1,4 +1,4 @@
-import { Container, Typography, Grid, Card, CardContent, Button, Box } from '@mui/material';
+import { Container, Typography, Card, CardContent, Button, Box } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
@@ -58,84 +58,96 @@ const Home = () => {
         </Typography>
       </Box>
 
-      <Grid container spacing={4}>
+      <Box
+        sx={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: '32px',
+          justifyContent: 'center',
+          mt: 4,
+          '& > *': {
+            flex: '1 1 300px',
+            maxWidth: '400px',
+          }
+        }}
+      >
         {departments.map((department, index) => (
-          <Grid  component="div" key={department.name} sx={{ xs: 12, md: 4 }}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: index * 0.1 }}
+          <Box
+            key={department.name}
+            component={motion.div}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
+          >
+            <Card
+              sx={{
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
+                },
+              }}
             >
-              <Card
-                sx={{
-                  height: '100%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '16px',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                  transition: 'all 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.2)',
-                  },
-                }}
-              >
-                <CardContent sx={{ flexGrow: 1, p: 4 }}>
-                  <Box
-                    sx={{
-                      width: '48px',
-                      height: '48px',
-                      borderRadius: '12px',
-                      background: department.gradient,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      mb: 2,
-                    }}
-                  >
-                    <Typography variant="h6" sx={{ color: 'white' }}>
-                      {department.name[0]}
-                    </Typography>
-                  </Box>
-                  <Typography 
-                    variant="h5" 
-                    component="h2" 
-                    gutterBottom
-                    sx={{ 
-                      fontWeight: 600,
-                      background: department.gradient,
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    {department.name}
+              <CardContent sx={{ flexGrow: 1, p: 4 }}>
+                <Box
+                  sx={{
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '12px',
+                    background: department.gradient,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 2,
+                  }}
+                >
+                  <Typography variant="h6" sx={{ color: 'white' }}>
+                    {department.name[0]}
                   </Typography>
-                  <Typography color="text.secondary" sx={{ mb: 3 }}>
-                    {department.description}
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={() => navigate(department.path)}
-                    sx={{
+                </Box>
+                <Typography 
+                  variant="h5" 
+                  component="h2" 
+                  gutterBottom
+                  sx={{ 
+                    fontWeight: 600,
+                    background: department.gradient,
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  {department.name}
+                </Typography>
+                <Typography color="text.secondary" sx={{ mb: 3 }}>
+                  {department.description}
+                </Typography>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  onClick={() => navigate(department.path)}
+                  sx={{
+                    background: department.gradient,
+                    '&:hover': {
                       background: department.gradient,
-                      '&:hover': {
-                        background: department.gradient,
-                        opacity: 0.9,
-                      },
-                    }}
-                  >
-                    Generate UTM Links
-                  </Button>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </Grid>
+                      opacity: 0.9,
+                    },
+                  }}
+                >
+                  Generate UTM Links
+                </Button>
+              </CardContent>
+            </Card>
+          </Box>
         ))}
-      </Grid>
+      </Box>
     </Container>
   );
 };

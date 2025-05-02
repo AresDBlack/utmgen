@@ -4,24 +4,23 @@ import {
   Paper,
   Typography,
   TextField,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   IconButton,
-
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   SelectChangeEvent,
+  Card,
+  CardContent,
+  Chip,
+  Tooltip,
+  InputAdornment,
 } from '@mui/material';
 
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
-import { motion } from 'framer-motion';
+import SearchIcon from '@mui/icons-material/Search';
+import { motion, AnimatePresence } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
 import type { UTMRecord } from "../services/googleSheets";
 
@@ -35,6 +34,7 @@ interface FilterState {
   department: string;
   client: string;
   campaign: string;
+  source: string;
   sourceType: string;
   search: string;
 }
@@ -48,6 +48,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     department: department,
     client: '',
     campaign: '',
+    source: '',
     sourceType: '',
     search: '',
   });
@@ -56,6 +57,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   const departments = Array.from(new Set(links.map(link => link.department).filter(Boolean))) as ('marketing' | 'sales' | 'social')[];
   const clients = Array.from(new Set(links.map(link => link.client).filter(Boolean)));
   const campaigns = Array.from(new Set(links.map(link => link.campaign).filter(Boolean)));
+  const sources = Array.from(new Set(links.map(link => link.source).filter(Boolean)));
   const sourceTypes = Array.from(new Set(links.map(link => link.sourceType).filter(Boolean)));
 
   const loadLinks = async () => {
@@ -94,6 +96,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     if (filters.department && link.department !== filters.department) return false;
     if (filters.client && link.client !== filters.client) return false;
     if (filters.campaign && link.campaign !== filters.campaign) return false;
+    if (filters.source && link.source !== filters.source) return false;
     if (filters.sourceType && link.sourceType !== filters.sourceType) return false;
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -101,6 +104,7 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
         link.url.toLowerCase().includes(searchLower) ||
         link.client.toLowerCase().includes(searchLower) ||
         link.campaign.toLowerCase().includes(searchLower) ||
+        link.source.toLowerCase().includes(searchLower) ||
         link.sourceType.toLowerCase().includes(searchLower) ||
         link.utmUrl.toLowerCase().includes(searchLower)
       );
@@ -131,15 +135,24 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <Typography variant="h6" gutterBottom>
+        <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
           Generated UTM Links
         </Typography>
 
         {/* Filter Controls */}
-        <Paper sx={{ p: 2, mb: 2 }}>
+        <Paper 
+          sx={{ 
+            p: 3, 
+            mb: 3,
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+          }}
+        >
           <Box sx={{ 
             display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
             gap: 2
           }}>
             <Box>
@@ -180,12 +193,12 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
             </Box>
             <Box>
               <FormControl fullWidth size="small">
-                <InputLabel>Campaign</InputLabel>
+                <InputLabel>Campaign Name</InputLabel>
                 <Select
                   name="campaign"
                   value={filters.campaign}
                   onChange={handleFilterChange}
-                  label="Campaign"
+                  label="Campaign Name"
                 >
                   <MenuItem value="">All</MenuItem>
                   {campaigns.map(campaign => (
@@ -198,12 +211,30 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
             </Box>
             <Box>
               <FormControl fullWidth size="small">
-                <InputLabel>Source Type</InputLabel>
+                <InputLabel>Source Name</InputLabel>
+                <Select
+                  name="source"
+                  value={filters.source}
+                  onChange={handleFilterChange}
+                  label="Source Name"
+                >
+                  <MenuItem value="">All</MenuItem>
+                  {sources.map(source => (
+                    <MenuItem key={source} value={source}>
+                      {source}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box>
+              <FormControl fullWidth size="small">
+                <InputLabel>Source Type Name</InputLabel>
                 <Select
                   name="sourceType"
                   value={filters.sourceType}
                   onChange={handleFilterChange}
-                  label="Source Type"
+                  label="Source Type Name"
                 >
                   <MenuItem value="">All</MenuItem>
                   {sourceTypes.map(type => (
@@ -222,56 +253,122 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
                 label="Search"
                 value={filters.search}
                 onChange={handleFilterChange}
-                placeholder="Search by URL, client, campaign, or source type"
+                placeholder="Search by URL, client, campaign, source, or source type"
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Box>
           </Box>
         </Paper>
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>URL</TableCell>
-                <TableCell>Client</TableCell>
-                <TableCell>Campaign</TableCell>
-                <TableCell>Source Type</TableCell>
-                <TableCell>Department</TableCell>
-                <TableCell>UTM Link</TableCell>
-                <TableCell>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredLinks.map((link) => (
-                <TableRow key={link.utmId}>
-                  <TableCell>{link.url}</TableCell>
-                  <TableCell>{link.client}</TableCell>
-                  <TableCell>{link.campaign}</TableCell>
-                  <TableCell>{link.sourceType}</TableCell>
-                  <TableCell>{link.department}</TableCell>
-                  <TableCell sx={{ maxWidth: 300, wordBreak: 'break-all' }}>
+        {/* Links List */}
+        <AnimatePresence>
+          {filteredLinks.map((link) => (
+            <motion.div
+              key={link.utmId}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card
+                sx={{
+                  mb: 2,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  transition: 'all 0.3s ease-in-out',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+                  },
+                }}
+              >
+                <CardContent>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                        {link.url}
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        <Chip 
+                          label={link.client} 
+                          size="small" 
+                          sx={{ 
+                            background: 'rgba(99, 102, 241, 0.1)',
+                            color: '#6366f1',
+                          }} 
+                        />
+                        <Chip 
+                          label={link.campaign} 
+                          size="small" 
+                          sx={{ 
+                            background: 'rgba(16, 185, 129, 0.1)',
+                            color: '#10b981',
+                          }} 
+                        />
+                        <Chip 
+                          label={link.sourceType} 
+                          size="small" 
+                          sx={{ 
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            color: '#f59e0b',
+                          }} 
+                        />
+                        <Chip 
+                          label={link.department} 
+                          size="small" 
+                          sx={{ 
+                            background: 'rgba(236, 72, 153, 0.1)',
+                            color: '#ec4899',
+                          }} 
+                        />
+                      </Box>
+                    </Box>
+                    <Tooltip title={copied[link.utmUrl] ? "Copied!" : "Copy to clipboard"}>
+                      <IconButton
+                        onClick={() => copyToClipboard(link.utmUrl)}
+                        sx={{
+                          color: copied[link.utmUrl] ? '#10b981' : 'inherit',
+                          transition: 'all 0.2s ease-in-out',
+                        }}
+                      >
+                        {copied[link.utmUrl] ? <CheckIcon /> : <ContentCopyIcon />}
+                      </IconButton>
+                    </Tooltip>
+                  </Box>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'text.secondary',
+                      wordBreak: 'break-all',
+                      fontFamily: 'monospace',
+                      p: 1,
+                      borderRadius: '8px',
+                      background: 'rgba(0, 0, 0, 0.05)',
+                    }}
+                  >
                     {link.utmUrl}
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      onClick={() => copyToClipboard(link.utmUrl)}
-                      size="small"
-                    >
-                      {copied[link.utmUrl] ? <CheckIcon /> : <ContentCopyIcon />}
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredLinks.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} align="center">
-                    No links found matching the selected filters
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                  </Typography>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+
+        {filteredLinks.length === 0 && (
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Typography color="text.secondary">
+              No links found matching the selected filters
+            </Typography>
+          </Box>
+        )}
       </motion.div>
     </Box>
   );

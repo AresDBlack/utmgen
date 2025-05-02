@@ -60,7 +60,7 @@ const Home = () => {
 
       <Grid container spacing={4}>
         {departments.map((department, index) => (
-          <Grid item key={department.name} sx={{ xs: 12, md: 4 }}>
+          <Grid  component="div" key={department.name} sx={{ xs: 12, md: 4 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}

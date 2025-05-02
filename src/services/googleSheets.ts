@@ -17,25 +17,24 @@ export interface SourceType {
 
 export interface UTMRecord {
   utmId: string;
-  campaignId: string;
-  sourceTypeId: string;
-  medium: string;
-  content: string;
-  term: string;
+  url: string;
+  client: string;
+  campaign: string;
+  source: string;
+  sourceType: string;
+  identifier: string;
+  utmUrl: string;
   createdAt: string;
+  department: 'marketing' | 'sales' | 'social';
 }
 
 class GoogleSheetsService {
   private readonly spreadsheetId: string;
   private readonly clientEmail: string;
-  private readonly privateKey: string;
-  private accessToken: string | null = null;
-  private tokenExpiry: number | null = null;
 
   constructor() {
     this.spreadsheetId = import.meta.env.VITE_GOOGLE_SHEETS_ID;
     this.clientEmail = import.meta.env.VITE_GOOGLE_CLIENT_EMAIL;
-    this.privateKey = import.meta.env.VITE_GOOGLE_PRIVATE_KEY;
   }
 
   private async getAccessToken(): Promise<string> {
@@ -88,7 +87,6 @@ class GoogleSheetsService {
         throw new Error('No access token in response');
       }
 
-      console.log('Access token obtained successfully');
       return data.access_token;
     } catch (error) {
       console.error('Error in getAccessToken:', {
@@ -159,19 +157,79 @@ class GoogleSheetsService {
     }
   }
 
-  async addUTMRecord(record: {
-    url: string;
-    client: string;
-    campaign: string;
-    source: string;
-    sourceType: string;
-    identifier: string;
-    utmUrl: string;
-  }) {
+  async getUTMRecords(): Promise<UTMRecord[]> {
     try {
       const token = await this.getAccessToken();
       const response = await fetch(
-        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/UTMRecords!A:G:append?valueInputOption=RAW`,
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/UTMRecords!A2:I`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error fetching UTM records:', errorData);
+        throw new Error(`Failed to fetch UTM records: ${errorData.error?.message || response.statusText}`);
+      }
+
+      const data = await response.json();
+      const rows = data.values || [];
+      return rows.map((row: string[], index: number) => ({
+        utmId: `utm-${index + 1}`,
+        url: row[0] || '',
+        client: row[1] || '',
+        campaign: row[2] || '',
+        source: row[3] || '',
+        sourceType: row[4] || '',
+        identifier: row[5] || '',
+        utmUrl: row[6] || '',
+        createdAt: row[7] || new Date().toISOString(),
+        department: (row[8] as 'marketing' | 'sales' | 'social') || 'marketing'
+      }));
+    } catch (error) {
+      console.error('Error fetching UTM records:', error);
+      throw error;
+    }
+  }
+
+  async checkUTMUrlExists(utmUrl: string): Promise<boolean> {
+    try {
+      const records = await this.getUTMRecords();
+      return records.some(record => record.utmUrl === utmUrl);
+    } catch (error) {
+      console.error('Error checking UTM URL:', error);
+      throw error;
+    }
+  }
+
+  async addUTMRecord(record: Omit<UTMRecord, 'utmId' | 'createdAt'> & { department: 'marketing' | 'sales' | 'social' }): Promise<void> {
+    try {
+      // Check if UTM URL already exists
+      const exists = await this.checkUTMUrlExists(record.utmUrl);
+      if (exists) {
+        throw new Error('UTM URL already exists');
+      }
+
+      const token = await this.getAccessToken();
+      const values = [
+        [
+          record.url,
+          record.client,
+          record.campaign,
+          record.source,
+          record.sourceType,
+          record.identifier,
+          record.utmUrl,
+          new Date().toISOString(),
+          record.department
+        ]
+      ];
+
+      const response = await fetch(
+        `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/UTMRecords!A2:I:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`,
         {
           method: 'POST',
           headers: {
@@ -179,22 +237,16 @@ class GoogleSheetsService {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            values: [[
-              new Date().toISOString(),
-              record.url,
-              record.client,
-              record.campaign,
-              record.source,
-              record.sourceType,
-              record.identifier,
-              record.utmUrl,
-            ]],
+            values,
+            majorDimension: 'ROWS'
           }),
         }
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to add UTM record: ${response.statusText}`);
+        const errorData = await response.json();
+        console.error('Error adding UTM record:', errorData);
+        throw new Error(`Failed to add UTM record: ${errorData.error?.message || response.statusText}`);
       }
     } catch (error) {
       console.error('Error adding UTM record:', error);

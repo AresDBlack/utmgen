@@ -4,27 +4,15 @@ import {
   TextField,
   Button,
   Typography,
-  Grid,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
-  SelectChangeEvent,
   Paper,
-  IconButton,
-  Tooltip,
   Snackbar,
   Alert,
-  CircularProgress,
-  InputAdornment
+  CircularProgress
 } from '@mui/material';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import SaveIcon from '@mui/icons-material/Save';
-import { useTheme } from '@mui/material/styles';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { generateCampaignCode } from '../utils/campaignCodeGenerator';
+import { googleSheetsService } from '../services/googleSheets';
 
 interface UTMGeneratorProps {
   department: 'marketing' | 'sales' | 'social';
@@ -40,8 +28,6 @@ interface FormData {
 }
 
 const UTMGenerator: React.FC<UTMGeneratorProps> = ({ department }) => {
-  const theme = useTheme();
-  const navigate = useNavigate();
   const [formData, setFormData] = useState<FormData>({
     campaign: '',
     term: '',
@@ -56,7 +42,7 @@ const UTMGenerator: React.FC<UTMGeneratorProps> = ({ department }) => {
   const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
@@ -87,8 +73,30 @@ const UTMGenerator: React.FC<UTMGeneratorProps> = ({ department }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleSave = () => {
-    // Implementation of handleSave function
+  const handleSave = async () => {
+    if (!generatedUrl) {
+      setError('Please generate a UTM URL first');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await googleSheetsService.addUTMRecord({
+        url: formData.url,
+        client: formData.source,
+        campaign: formData.campaign,
+        source: formData.source,
+        sourceType: formData.medium,
+        identifier: formData.content,
+        utmUrl: generatedUrl,
+        department: department
+      });
+      setSnackbar({ open: true, message: 'UTM URL saved successfully', severity: 'success' });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Failed to save UTM URL', severity: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -98,81 +106,92 @@ const UTMGenerator: React.FC<UTMGeneratorProps> = ({ department }) => {
           Generate UTM Parameters
         </Typography>
         <Box sx={{ display: 'grid', gap: 2 }}>
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-            <TextField
-              fullWidth
-              label="Campaign Name"
-              value={formData.campaign}
-              onChange={handleChange}
-              name="campaign"
-              required
-            />
-            <TextField
-              fullWidth
-              label="Campaign Code"
-              value={formData.term}
-              onChange={handleChange}
-              name="term"
-              required
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => {}} size="small">
-                      <RefreshIcon />
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
-            <FormControl fullWidth>
-              <InputLabel>Source</InputLabel>
-              <Select
-                value={formData.source}
-                onChange={handleChange}
-                name="source"
-                required
-                label="Source"
-              >
-                <MenuItem value="google">Google</MenuItem>
-                <MenuItem value="facebook">Facebook</MenuItem>
-                <MenuItem value="newsletter">Newsletter</MenuItem>
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              label="Medium"
-              value={formData.medium}
-              onChange={handleChange}
-              name="medium"
-              required
-            />
-          </Box>
+          <TextField
+            fullWidth
+            label="URL"
+            name="url"
+            value={formData.url}
+            onChange={handleTextChange}
+            error={!!error}
+            helperText={error}
+          />
+          <TextField
+            fullWidth
+            label="Source"
+            name="source"
+            value={formData.source}
+            onChange={handleTextChange}
+          />
+          <TextField
+            fullWidth
+            label="Medium"
+            name="medium"
+            value={formData.medium}
+            onChange={handleTextChange}
+          />
+          <TextField
+            fullWidth
+            label="Campaign"
+            name="campaign"
+            value={formData.campaign}
+            onChange={handleTextChange}
+          />
+          <TextField
+            fullWidth
+            label="Term"
+            name="term"
+            value={formData.term}
+            onChange={handleTextChange}
+          />
           <TextField
             fullWidth
             label="Content"
-            value={formData.content}
-            onChange={handleChange}
             name="content"
+            value={formData.content}
+            onChange={handleTextChange}
           />
-          <TextField
-            fullWidth
-            label="Base URL"
-            value={formData.url}
-            onChange={handleChange}
-            name="url"
-            required
-          />
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            onClick={handleSave}
-            disabled={loading}
-          >
-            {loading ? <CircularProgress size={24} /> : 'Save'}
-          </Button>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="contained"
+              onClick={generateUTM}
+              startIcon={<RefreshIcon />}
+            >
+              Generate
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={copyToClipboard}
+              startIcon={<ContentCopyIcon />}
+              disabled={!generatedUrl}
+            >
+              {copied ? 'Copied!' : 'Copy'}
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleSave}
+              startIcon={<SaveIcon />}
+              disabled={!generatedUrl || loading}
+            >
+              {loading ? <CircularProgress size={24} /> : 'Save'}
+            </Button>
+          </Box>
+          {generatedUrl && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="subtitle1">Generated URL:</Typography>
+              <Typography
+                variant="body1"
+                sx={{
+                  wordBreak: 'break-all',
+                  bgcolor: 'grey.100',
+                  p: 1,
+                  borderRadius: 1,
+                }}
+              >
+                {generatedUrl}
+              </Typography>
+            </Box>
+          )}
         </Box>
       </Paper>
       <Snackbar

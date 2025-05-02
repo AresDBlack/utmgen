@@ -5,7 +5,6 @@ import {
   Button,
   Typography,
   Paper,
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -25,6 +24,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
 import type { Campaign, SourceType } from '../services/googleSheets';
+import UTMLinkList from '../components/UTMLinkList';
 
 // Predefined data
 const CLIENTS = [
@@ -57,7 +57,7 @@ const Social = () => {
   const [copied, setCopied] = useState(false);
   const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [availableSourceTypes, setAvailableSourceTypes] = useState<SourceType[]>([]);
-  const [lastIdentifier, setLastIdentifier] = useState<Record<string, number>>({});
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   // Dialog states
   const [isNewSourceTypeDialogOpen, setIsNewSourceTypeDialogOpen] = useState(false);
@@ -65,7 +65,7 @@ const Social = () => {
   const [newSourceTypeName, setNewSourceTypeName] = useState('');
   const [newSourceTypeCode, setNewSourceTypeCode] = useState('');
   const [newCampaignName, setNewCampaignName] = useState('');
-  const [newCampaignCode, setNewCampaignCode] = useState('');
+
 
   // Load data from Google Sheets
   useEffect(() => {
@@ -78,14 +78,6 @@ const Social = () => {
 
         setAvailableCampaigns(campaigns);
         setAvailableSourceTypes(sourceTypes);
-
-        // Initialize lastIdentifier from source types
-        const initialIdentifiers: Record<string, number> = {};
-        sourceTypes.forEach(type => {
-          const key = `${type.source}-${type.sourceTypeId}`;
-          initialIdentifiers[key] = 0;
-        });
-        setLastIdentifier(initialIdentifiers);
       } catch (error) {
         console.error('Error loading data:', error);
         setError('Failed to load data from Google Sheets');
@@ -146,7 +138,7 @@ const Social = () => {
     type => type.source === formData.source
   );
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement> | SelectChangeEvent) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -163,7 +155,7 @@ const Social = () => {
         console.error('Error loading campaigns:', error);
       }
     } else if (name === 'source') {
-      setFormData(prev => ({ ...prev, sourceType: '', identifier: '' }));
+      setFormData(prev => ({ ...prev, sourceType: '' }));
       try {
         const sourceTypes = await googleSheetsService.getSourceTypes();
         setAvailableSourceTypes(sourceTypes.filter(t => t.source === value));
@@ -237,19 +229,30 @@ const Social = () => {
       return;
     }
 
+    const campaign = availableCampaigns.find(c => c.campaignId === formData.campaign);
+    if (!campaign) {
+      setError('Invalid campaign');
+      return;
+    }
+
     const sourceType = availableSourceTypes.find(t => t.sourceTypeId === formData.sourceType);
     if (!sourceType) {
       setError('Invalid source type');
       return;
     }
 
+    // Get count of existing records with same source type
+    const records = await googleSheetsService.getUTMRecords();
+    const sourceTypeCount = records.filter(r => r.sourceType === formData.sourceType).length + 1;
+    const utmMedium = `${sourceType.abbr}${sourceTypeCount}`;
+
     const baseUrl = formData.url.includes('?') ? formData.url : `${formData.url}?`;
     const params = new URLSearchParams();
 
     params.append('utm_source', formData.source);
-    params.append('utm_medium', sourceType.abbr);
-    params.append('utm_campaign', `${formData.client}-${formData.campaign}`);
-    params.append('utm_content', formData.identifier);
+    params.append('utm_medium', utmMedium);
+    params.append('utm_campaign', campaign.name);
+    params.append('utm_content', 'SM');
 
     const utmUrl = `${baseUrl}${params.toString()}`;
     setGeneratedUrl(utmUrl);
@@ -265,10 +268,16 @@ const Social = () => {
         sourceType: formData.sourceType,
         identifier: formData.identifier,
         utmUrl,
+        department: 'social'
       });
+      setReloadTrigger(prev => prev + 1); // Trigger reload of links
     } catch (error) {
       console.error('Error saving UTM record:', error);
-      setError('Failed to save UTM record');
+      if (error instanceof Error && error.message === 'UTM URL already exists') {
+        setError('This UTM link already exists. Please modify your parameters to create a unique link.');
+      } else {
+        setError('Failed to save UTM record');
+      }
     }
   };
 
@@ -346,13 +355,17 @@ const Social = () => {
             maxWidth: '600px',
             mx: 'auto',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
           }}
         >
-          <Grid container direction="column" spacing={3} sx={{ flex: 1 }}>
-            <Grid item>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+              width: '100%'
+            }}
+          >
+            <Box>
               <TextField
                 fullWidth
                 name="url"
@@ -372,15 +385,15 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
+                      borderColor: '#ec4899',
                     },
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Client</InputLabel>
                 <Select
                   name="client"
@@ -396,7 +409,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#ec4899',
                     },
                   }}
                 >
@@ -407,10 +420,10 @@ const Social = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Campaign</InputLabel>
                 <Select
                   name="campaign"
@@ -425,8 +438,8 @@ const Social = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            color: '#ec4899',
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
                           },
                         }}
                       >
@@ -443,7 +456,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#ec4899',
                     },
                   }}
                 >
@@ -454,16 +467,16 @@ const Social = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
-                <InputLabel>Social Media Platform</InputLabel>
+            <Box>
+              <FormControl fullWidth>
+                <InputLabel>Social Media</InputLabel>
                 <Select
                   name="source"
                   value={formData.source}
                   onChange={handleChange}
-                  label="Social Media Platform"
+                  label="Social Media"
                   sx={{
                     '& .MuiOutlinedInput-notchedOutline': {
                       borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -473,7 +486,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#ec4899',
                     },
                   }}
                 >
@@ -484,10 +497,10 @@ const Social = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Content Type</InputLabel>
                 <Select
                   name="sourceType"
@@ -502,8 +515,8 @@ const Social = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            color: '#ec4899',
+                            backgroundColor: 'rgba(236, 72, 153, 0.1)',
                           },
                         }}
                       >
@@ -520,7 +533,7 @@ const Social = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#ec4899',
                     },
                   }}
                 >
@@ -531,35 +544,64 @@ const Social = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item sx={{ mt: 'auto' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={generateUTM}
+            <Box>
+              <TextField
                 fullWidth
+                name="identifier"
+                label="Identifier"
+                value={formData.identifier}
+                onChange={handleChange}
+                placeholder="Enter identifier"
                 size="small"
                 sx={{
-                  background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
-                  borderRadius: '8px',
-                  py: 1.5,
-                  textTransform: 'none',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
-                    opacity: 0.9,
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.2)',
+                  minWidth: '300px',
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.1)',
+                      borderRadius: '8px',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.2)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: '#ec4899',
+                    },
                   },
-                  transition: 'all 0.2s ease-in-out',
                 }}
-              >
-                Generate UTM
-              </Button>
-            </Grid>
-          </Grid>
+              />
+            </Box>
+
+            <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' }, mt: 2 }}>
+              <FormControl fullWidth>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={generateUTM}
+                  fullWidth
+                  size="small"
+                  sx={{
+                    background: 'linear-gradient(45deg, #ec4899, #8b5cf6)',
+                    borderRadius: '8px',
+                    py: 1.5,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #ec4899, #8b5cf6)',
+                      opacity: 0.9,
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(236, 72, 153, 0.2)',
+                    },
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                >
+                  Generate UTM
+                </Button>
+              </FormControl>
+            </Box>
+          </Box>
 
           {generatedUrl && (
             <motion.div
@@ -734,6 +776,8 @@ const Social = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <UTMLinkList department="social" reloadTrigger={reloadTrigger} />
     </Box>
   );
 };

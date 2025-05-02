@@ -5,7 +5,6 @@ import {
   Button,
   Typography,
   Paper,
-  Grid,
   FormControl,
   InputLabel,
   Select,
@@ -25,6 +24,7 @@ import AddIcon from '@mui/icons-material/Add';
 import { motion } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
 import type { Campaign, SourceType } from '../services/googleSheets';
+import UTMLinkList from '../components/UTMLinkList';
 
 // Predefined data
 const CLIENTS = [
@@ -40,6 +40,7 @@ const Sales = () => {
     campaign: '',
     sourceType: '',
   });
+  const [reloadTrigger, setReloadTrigger] = useState(0);
 
   const [generatedUrl, setGeneratedUrl] = useState('');
   const [error, setError] = useState('');
@@ -53,7 +54,7 @@ const Sales = () => {
   const [newSourceTypeName, setNewSourceTypeName] = useState('');
   const [newSourceTypeCode, setNewSourceTypeCode] = useState('');
   const [newCampaignName, setNewCampaignName] = useState('');
-  const [newCampaignCode, setNewCampaignCode] = useState('');
+
 
   // Load data from Google Sheets
   useEffect(() => {
@@ -94,7 +95,7 @@ const Sales = () => {
     }
   }, [formData.client]);
 
-  const handleChange = async (e: React.ChangeEvent<HTMLInputElement> | SelectChangeEvent) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -164,6 +165,12 @@ const Sales = () => {
       return;
     }
 
+    const campaign = availableCampaigns.find(c => c.campaignId === formData.campaign);
+    if (!campaign) {
+      setError('Invalid campaign');
+      return;
+    }
+
     const sourceType = availableSourceTypes.find(t => t.sourceTypeId === formData.sourceType);
     if (!sourceType) {
       setError('Invalid source type');
@@ -175,7 +182,8 @@ const Sales = () => {
 
     params.append('utm_source', 'direct');
     params.append('utm_medium', sourceType.abbr);
-    params.append('utm_campaign', `${formData.client}-${formData.campaign}`);
+    params.append('utm_campaign', campaign.name);
+    params.append('utm_content', 'ST');
 
     const utmUrl = `${baseUrl}${params.toString()}`;
     setGeneratedUrl(utmUrl);
@@ -191,10 +199,16 @@ const Sales = () => {
         sourceType: formData.sourceType,
         identifier: '',
         utmUrl,
+        department: 'sales'
       });
+      setReloadTrigger(prev => prev + 1); // Trigger reload of links
     } catch (error) {
       console.error('Error saving UTM record:', error);
-      setError('Failed to save UTM record');
+      if (error instanceof Error && error.message === 'UTM URL already exists') {
+        setError('This UTM link already exists. Please modify your parameters to create a unique link.');
+      } else {
+        setError('Failed to save UTM record');
+      }
     }
   };
 
@@ -272,13 +286,17 @@ const Sales = () => {
             maxWidth: '600px',
             mx: 'auto',
             boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
           }}
         >
-          <Grid container direction="column" spacing={3} sx={{ flex: 1 }}>
-            <Grid item>
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+              gap: 2,
+              width: '100%'
+            }}
+          >
+            <Box>
               <TextField
                 fullWidth
                 name="url"
@@ -298,15 +316,15 @@ const Sales = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
+                      borderColor: '#10b981',
                     },
                   },
                 }}
               />
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Client</InputLabel>
                 <Select
                   name="client"
@@ -322,7 +340,7 @@ const Sales = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#10b981',
                     },
                   }}
                 >
@@ -333,10 +351,10 @@ const Sales = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Campaign</InputLabel>
                 <Select
                   name="campaign"
@@ -351,8 +369,8 @@ const Sales = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            color: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
                           },
                         }}
                       >
@@ -369,7 +387,7 @@ const Sales = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#10b981',
                     },
                   }}
                 >
@@ -380,10 +398,10 @@ const Sales = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item>
-              <FormControl fullWidth size="small" sx={{ minWidth: '300px' }}>
+            <Box>
+              <FormControl fullWidth>
                 <InputLabel>Sales Agent</InputLabel>
                 <Select
                   name="sourceType"
@@ -398,8 +416,8 @@ const Sales = () => {
                         sx={{
                           color: 'rgba(255, 255, 255, 0.7)',
                           '&:hover': {
-                            color: '#6366f1',
-                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            color: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
                           },
                         }}
                       >
@@ -416,7 +434,7 @@ const Sales = () => {
                       borderColor: 'rgba(255, 255, 255, 0.2)',
                     },
                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                      borderColor: '#6366f1',
+                      borderColor: '#10b981',
                     },
                   }}
                 >
@@ -427,35 +445,37 @@ const Sales = () => {
                   ))}
                 </Select>
               </FormControl>
-            </Grid>
+            </Box>
 
-            <Grid item sx={{ mt: 'auto' }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={generateUTM}
-                fullWidth
-                size="small"
-                sx={{
-                  background: 'linear-gradient(45deg, #10b981, #3b82f6)',
-                  borderRadius: '8px',
-                  py: 1.5,
-                  textTransform: 'none',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                  '&:hover': {
+            <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' }, mt: 2 }}>
+              <FormControl fullWidth>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={generateUTM}
+                  fullWidth
+                  size="small"
+                  sx={{
                     background: 'linear-gradient(45deg, #10b981, #3b82f6)',
-                    opacity: 0.9,
-                    transform: 'translateY(-1px)',
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
-                  },
-                  transition: 'all 0.2s ease-in-out',
-                }}
-              >
-                Generate UTM
-              </Button>
-            </Grid>
-          </Grid>
+                    borderRadius: '8px',
+                    py: 1.5,
+                    textTransform: 'none',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #10b981, #3b82f6)',
+                      opacity: 0.9,
+                      transform: 'translateY(-1px)',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.2)',
+                    },
+                    transition: 'all 0.2s ease-in-out',
+                  }}
+                >
+                  Generate UTM
+                </Button>
+              </FormControl>
+            </Box>
+          </Box>
 
           {generatedUrl && (
             <motion.div
@@ -630,6 +650,8 @@ const Sales = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <UTMLinkList department="sales" reloadTrigger={reloadTrigger} />
     </Box>
   );
 };

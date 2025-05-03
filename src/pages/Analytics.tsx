@@ -22,6 +22,9 @@ import {
   LinearProgress,
   Chip,
   CircularProgress,
+  TextField,
+  Popover,
+  Button,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -34,10 +37,11 @@ import {
   LocationOn,
   AccessTime,
   Campaign,
+  DateRange,
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
-import type { UTMRecord } from '../services/googleSheets';
+import type { UTMRecord, Campaign as CampaignType } from '../services/googleSheets';
 import {
   LineChart,
   Line,
@@ -73,9 +77,14 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [records, setRecords] = useState<UTMRecord[]>([]);
+  const [campaigns, setCampaigns] = useState<CampaignType[]>([]);
   const [timeRange, setTimeRange] = useState('7d');
   const [department, setDepartment] = useState('all');
+  const [selectedCampaign, setSelectedCampaign] = useState('all');
   const [isClient, setIsClient] = useState(false);
+  const [dateRangeAnchor, setDateRangeAnchor] = useState<null | HTMLElement>(null);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   useEffect(() => {
     setIsClient(true);
@@ -84,8 +93,12 @@ const Analytics = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const data = await googleSheetsService.getUTMRecords();
-      setRecords(data);
+      const [utmRecords, campaignData] = await Promise.all([
+        googleSheetsService.getUTMRecords(),
+        googleSheetsService.getCampaigns()
+      ]);
+      setRecords(utmRecords);
+      setCampaigns(campaignData);
       setError('');
     } catch (error) {
       console.error('Error loading analytics:', error);
@@ -101,16 +114,63 @@ const Analytics = () => {
 
   const handleTimeRangeChange = (event: SelectChangeEvent) => {
     setTimeRange(event.target.value);
+    if (event.target.value !== 'custom') {
+      setStartDate('');
+      setEndDate('');
+    }
   };
 
   const handleDepartmentChange = (event: SelectChangeEvent) => {
     setDepartment(event.target.value);
   };
 
+  const handleCampaignChange = (event: SelectChangeEvent) => {
+    setSelectedCampaign(event.target.value);
+  };
+
+  const handleDateRangeClick = (event: React.MouseEvent<HTMLElement>) => {
+    setDateRangeAnchor(event.currentTarget);
+  };
+
+  const handleDateRangeClose = () => {
+    setDateRangeAnchor(null);
+  };
+
+  const handleCustomDateRange = () => {
+    if (startDate && endDate) {
+      setTimeRange('custom');
+      handleDateRangeClose();
+    }
+  };
+
   const filteredRecords = records.filter(record => {
     if (department !== 'all' && record.department !== department) return false;
-    // Add time range filtering logic here
-    return true;
+    if (selectedCampaign !== 'all' && record.campaign !== selectedCampaign) return false;
+    
+    if (timeRange === 'custom' && startDate && endDate) {
+      const recordDate = new Date(record.createdAt);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      return recordDate >= start && recordDate <= end;
+    }
+    
+    // Predefined time range filtering
+    const recordDate = new Date(record.createdAt);
+    const now = new Date();
+    const diffInDays = Math.floor((now.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    switch (timeRange) {
+      case '24h':
+        return diffInDays <= 1;
+      case '7d':
+        return diffInDays <= 7;
+      case '30d':
+        return diffInDays <= 30;
+      case '90d':
+        return diffInDays <= 90;
+      default:
+        return true;
+    }
   });
 
   // Basic Metrics
@@ -241,6 +301,9 @@ const Analytics = () => {
     </Card>
   );
 
+  // Get unique campaigns for the filter
+  const uniqueCampaignsForFilter = Array.from(new Set(records.map(r => r.campaign)));
+
   if (!isClient) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
@@ -285,8 +348,14 @@ const Analytics = () => {
                 <MenuItem value="7d">Last 7 days</MenuItem>
                 <MenuItem value="30d">Last 30 days</MenuItem>
                 <MenuItem value="90d">Last 90 days</MenuItem>
+                <MenuItem value="custom">Custom Range</MenuItem>
               </Select>
             </FormControl>
+            {timeRange === 'custom' && (
+              <IconButton onClick={handleDateRangeClick} sx={{ color: 'primary.main' }}>
+                <DateRange />
+              </IconButton>
+            )}
             <FormControl size="small" sx={{ minWidth: 120 }}>
               <InputLabel>Department</InputLabel>
               <Select
@@ -301,6 +370,21 @@ const Analytics = () => {
                 <MenuItem value="others">Others</MenuItem>
               </Select>
             </FormControl>
+            <FormControl size="small" sx={{ minWidth: 120 }}>
+              <InputLabel>Campaign</InputLabel>
+              <Select
+                value={selectedCampaign}
+                onChange={handleCampaignChange}
+                label="Campaign"
+              >
+                <MenuItem value="all">All Campaigns</MenuItem>
+                {campaigns.map(campaign => (
+                  <MenuItem key={campaign.campaignId} value={campaign.campaignId}>
+                    {campaign.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             <MuiTooltip title="Refresh data">
               <IconButton onClick={loadData} sx={{ color: 'primary.main' }}>
                 <Refresh />
@@ -308,6 +392,40 @@ const Analytics = () => {
             </MuiTooltip>
           </Box>
         </Box>
+
+        <Popover
+          open={Boolean(dateRangeAnchor)}
+          anchorEl={dateRangeAnchor}
+          onClose={handleDateRangeClose}
+          anchorOrigin={{
+            vertical: 'bottom',
+            horizontal: 'left',
+          }}
+        >
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <TextField
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+            />
+            <Button
+              variant="contained"
+              onClick={handleCustomDateRange}
+              disabled={!startDate || !endDate}
+            >
+              Apply Date Range
+            </Button>
+          </Box>
+        </Popover>
 
         {error && (
           <Paper 

@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import checker from 'vite-plugin-checker'
+import path from 'path'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -27,17 +28,22 @@ export default defineConfig({
       },
     },
     commonjsOptions: {
-      include: [/node_modules/],
-      transformMixedEsModules: true,
+      include: [/recharts/, /node_modules/],
     },
   },
   optimizeDeps: {
-    include: ['jose'],
+    include: ['jose', 'recharts'],
+    exclude: [],
   },
   server: {
     headers: {
       'Cross-Origin-Opener-Policy': 'same-origin',
       'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
     },
   },
 })

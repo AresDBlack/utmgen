@@ -6,6 +6,7 @@ import Marketing from './pages/Marketing';
 import Sales from './pages/Sales';
 import Social from './pages/Social';
 import Others from './pages/Others';
+import Analytics from './pages/Analytics';
 import Navbar from './components/Navbar';
 import { Box } from '@mui/material';
 
@@ -115,7 +116,7 @@ const getTheme = (pathname: string) => {
           },
         },
       });
-    case '/':
+    case '/analytics':
       return createTheme({
         ...baseTheme,
         palette: {
@@ -126,12 +127,14 @@ const getTheme = (pathname: string) => {
             dark: '#7c3aed',
           },
           secondary: {
-            main: '#ec4899',
-            light: '#f472b6',
-            dark: '#db2777',
+            main: '#10b981',
+            light: '#34d399',
+            dark: '#059669',
           },
         },
       });
+    case '/':
+      return createTheme(baseTheme);
     default:
       return createTheme(baseTheme);
   }
@@ -149,6 +152,8 @@ const GradientLine = () => {
       case '/social':
         return 'linear-gradient(45deg, #f59e0b, #ef4444)';
       case '/others':
+        return 'linear-gradient(45deg, #8b5cf6, #10b981)';
+      case '/analytics':
         return 'linear-gradient(45deg, #8b5cf6, #10b981)';
       case '/':
         return 'linear-gradient(45deg, #8b5cf6, #ec4899)';
@@ -210,6 +215,7 @@ const AppContent = () => {
             <Route path="/sales" element={<Sales />} />
             <Route path="/social" element={<Social />} />
             <Route path="/others" element={<Others />} />
+            <Route path="/analytics" element={<Analytics />} />
           </Routes>
         </Box>
       </Box>

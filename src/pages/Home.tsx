@@ -24,6 +24,18 @@ const Home = () => {
       description: 'Generate UTM links for social media posts',
       gradient: 'linear-gradient(45deg, #f59e0b, #ef4444)', // Amber to Red
     },
+    { 
+      name: 'Others', 
+      path: '/others', 
+      description: 'Generate UTM links for other purposes',
+      gradient: 'linear-gradient(45deg, #8b5cf6, #10b981)', // Purple to Emerald
+    },
+    { 
+      name: 'Analytics', 
+      path: '/analytics', 
+      description: 'View detailed analytics and insights',
+      gradient: 'linear-gradient(45deg, #8b5cf6, #10b981)', // Purple to Emerald
+    },
   ];
 
   return (

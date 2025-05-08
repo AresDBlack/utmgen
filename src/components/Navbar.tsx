@@ -1,67 +1,72 @@
-import { AppBar, Toolbar, Button, Box, Typography, useTheme } from '@mui/material';
-import { Link as RouterLink, useLocation } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
+import { Link, useLocation } from 'react-router-dom';
 
 const Navbar = () => {
   const location = useLocation();
-  const theme = useTheme();
 
   const navItems = [
-    { path: '/', label: 'Home' },
-    { path: '/marketing', label: 'Marketing' },
-    { path: '/sales', label: 'Sales' },
-    { path: '/social', label: 'Social' },
-    { path: '/others', label: 'Others' },
-    { path: '/analytics', label: 'Analytics' },
+    { name: 'Home', path: '/' },
+    { name: 'Marketing', path: '/marketing' },
+    { name: 'Sales', path: '/sales' },
+    { name: 'Social Media', path: '/social' },
+    { name: 'Others', path: '/others' },
+    { name: 'Analytics', path: '/analytics' },
   ];
 
   return (
-    <AppBar position="sticky" elevation={0}>
-      <Toolbar sx={{ justifyContent: 'space-between' }}>
-        <Typography
-          variant="h6"
-          component={RouterLink}
-          to="/"
-          sx={{
-            textDecoration: 'none',
-            color: 'inherit',
+    <AppBar 
+      position="static" 
+      elevation={0}
+      sx={{ 
+        background: 'transparent',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(8px)',
+      }}
+    >
+      <Toolbar sx={{ maxWidth: '1200px', width: '100%', mx: 'auto' }}>
+        <Typography 
+          variant="h6" 
+          component="div" 
+          sx={{ 
+            flexGrow: 1,
             fontWeight: 700,
-            background: 'linear-gradient(45deg, #6366f1, #8b5cf6)',
+            background: 'linear-gradient(45deg, #6366f1, #ec4899)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}
         >
           UTM Generator
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 2 }}>
           {navItems.map((item) => (
             <Button
-              key={item.path}
-              component={RouterLink}
+              key={item.name}
+              component={Link}
               to={item.path}
               sx={{
                 color: location.pathname === item.path ? 'primary.main' : 'text.secondary',
+                fontWeight: location.pathname === item.path ? 600 : 400,
                 position: 'relative',
                 '&::after': {
                   content: '""',
                   position: 'absolute',
                   bottom: 0,
-                  left: '50%',
-                  transform: location.pathname === item.path ? 'translateX(-50%)' : 'translateX(-50%) scaleX(0)',
-                  width: '80%',
+                  left: 0,
+                  right: 0,
                   height: '2px',
-                  background: 'linear-gradient(45deg, #6366f1, #8b5cf6)',
-                  transition: 'transform 0.3s ease',
-                },
-                '&:hover::after': {
-                  transform: 'translateX(-50%) scaleX(1)',
+                  backgroundColor: 'primary.main',
+                  opacity: location.pathname === item.path ? 1 : 0,
+                  transition: 'opacity 0.3s ease',
                 },
                 '&:hover': {
-                  background: 'rgba(99, 102, 241, 0.1)',
+                  color: 'primary.main',
+                  '&::after': {
+                    opacity: 1,
+                  },
                 },
               }}
             >
-              {item.label}
+              {item.name}
             </Button>
           ))}
         </Box>

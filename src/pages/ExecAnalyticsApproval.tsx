@@ -13,8 +13,22 @@ const ExecAnalyticsApproval = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Check access
-  const hasAccess = searchParams.get('key') === 'aubtinisgay';
+  // Check access and get approved by email based on key
+  const accessKey = searchParams.get('key');
+  const hasAccess = accessKey === 'aubtinisgay' || accessKey === 'rowellsucksatchess' || accessKey === 'shanalishitler';
+  
+  const getApprovedByEmail = (key: string | null) => {
+    switch (key) {
+      case 'aubtinisgay':
+        return 'aubtin@justsimplymarketing.com';
+      case 'rowellsucksatchess':
+        return 'rowell@justsimplymarketing.com';
+      case 'shanalishitler':
+        return 'shanal@justsimplymarketing.com';
+      default:
+        return 'exec@example.com';
+    }
+  };
 
   const fetchPending = async () => {
     const all = await getAnalyticsSubmissions();
@@ -28,14 +42,16 @@ const ExecAnalyticsApproval = () => {
   }, [hasAccess]);
 
   const handleApprove = async (submission: AnalyticsSubmission) => {
-    await approveAnalyticsSubmission(submission.submissionId, 'exec@example.com');
+    const approvedByEmail = getApprovedByEmail(accessKey);
+    await approveAnalyticsSubmission(submission.submissionId, approvedByEmail);
     setMessage('Submission approved!');
     fetchPending();
     setDialogOpen(false);
   };
 
   const handleReject = async (submission: AnalyticsSubmission) => {
-    await rejectAnalyticsSubmission(submission.submissionId, 'exec@example.com', rejectionReason);
+    const approvedByEmail = getApprovedByEmail(accessKey);
+    await rejectAnalyticsSubmission(submission.submissionId, approvedByEmail, rejectionReason);
     setMessage('Submission rejected.');
     fetchPending();
     setDialogOpen(false);

@@ -36,6 +36,12 @@ const Home = () => {
       description: 'View detailed analytics and insights',
       gradient: 'linear-gradient(45deg, #8b5cf6, #10b981)', // Purple to Emerald
     },
+    {
+      name: 'Affiliates',
+      path: '/affiliates',
+      description: 'Generate UTM links for affiliate partners',
+      gradient: 'linear-gradient(45deg, #06b6d4, #a21caf)', // Cyan to Violet
+    },
   ];
 
   return (

@@ -11,6 +11,7 @@ export interface Source {
   sourceId: string;
   name: string;
   abbr: string;
+  sourceIdPrefix?: string;
 }
 
 export interface Campaign {
@@ -35,12 +36,297 @@ export type UTMRecord = {
   sourceType: string;
   identifier: string;
   utmUrl: string;
-  department: 'marketing' | 'sales' | 'social' | 'others';
+  department: 'marketing' | 'sales' | 'social' | 'others' | 'affiliates';
   createdAt: string;
 };
 
+// --- Analytics Submission & Streaks ---
+
+export interface AnalyticsSubmission {
+  submissionId: string;
+  department: string;
+  dueDate: string;
+  submittedAt: string;
+  submittedBy: string;
+  links: string;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedAt: string;
+  approvedBy: string;
+  rejectionReason?: string;
+}
+
+export interface DepartmentStreak {
+  department: string;
+  currentStreak: number;
+  longestStreak: number;
+  lastApprovedSubmissionDate: string;
+}
+
+// Utility: Calculate due dates for a given year
+export function getDueDates(year: number): string[] {
+  const departments = [
+    'Marketing',
+    'Social Media',
+    'Video Editing',
+    'Lead Gen',
+    'Graphic Design',
+    'Sales',
+  ];
+  const dueDates: Set<string> = new Set();
+  // Weekly: Every Monday
+  let d = new Date(`${year}-01-01`);
+  while (d.getFullYear() === year) {
+    if (d.getDay() === 1) dueDates.add(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  // Monthly: 7th of each month (move to Monday if weekend)
+  for (let m = 0; m < 12; m++) {
+    let date = new Date(year, m, 7);
+    if (date.getDay() === 6) date.setDate(date.getDate() + 2);
+    if (date.getDay() === 0) date.setDate(date.getDate() + 1);
+    dueDates.add(date.toISOString().slice(0, 10));
+  }
+  // Quarterly: 7 days after quarter ends (move to Monday if weekend)
+  const quarters = [3, 6, 9, 12];
+  for (let q of quarters) {
+    let date = new Date(year, q, 7);
+    if (date.getDay() === 6) date.setDate(date.getDate() + 2);
+    if (date.getDay() === 0) date.setDate(date.getDate() + 1);
+    dueDates.add(date.toISOString().slice(0, 10));
+  }
+  // Yearly: Jan 7 (move to Monday if weekend)
+  let jan7 = new Date(year, 0, 7);
+  if (jan7.getDay() === 6) jan7.setDate(jan7.getDate() + 2);
+  if (jan7.getDay() === 0) jan7.setDate(jan7.getDate() + 1);
+  dueDates.add(jan7.toISOString().slice(0, 10));
+  return Array.from(dueDates).sort();
+}
+
+export async function getAnalyticsSubmissions(): Promise<AnalyticsSubmission[]> {
+  // Fetch from AnalyticsSubmissions sheet
+  const service = googleSheetsService;
+  await service.createSheetIfNotExists('AnalyticsSubmissions', [
+    'Submission ID', 'Department', 'Due Date', 'Submitted At', 'Submitted By', 'Links', 'Description', 'Status', 'Approved At', 'Approved By', 'Rejection Reason'
+  ]);
+  const values = await service.fetchSheet('AnalyticsSubmissions!A2:K');
+  return values.map(([submissionId, department, dueDate, submittedAt, submittedBy, links, description, status, approvedAt, approvedBy, rejectionReason]) => ({
+    submissionId,
+    department,
+    dueDate,
+    submittedAt,
+    submittedBy,
+    links,
+    description,
+    status,
+    approvedAt,
+    approvedBy,
+    rejectionReason,
+  }));
+}
+
+export async function createAnalyticsSubmission(submission: Omit<AnalyticsSubmission, 'submissionId' | 'status' | 'approvedAt' | 'approvedBy' | 'rejectionReason'>): Promise<AnalyticsSubmission> {
+  const service = googleSheetsService;
+  await service.createSheetIfNotExists('AnalyticsSubmissions', [
+    'Submission ID', 'Department', 'Due Date', 'Submitted At', 'Submitted By', 'Links', 'Description', 'Status', 'Approved At', 'Approved By', 'Rejection Reason'
+  ]);
+  const submissionId = `submission-${Date.now()}`;
+  const values = [[
+    submissionId,
+    submission.department,
+    submission.dueDate,
+    submission.submittedAt,
+    submission.submittedBy,
+    submission.links,
+    submission.description,
+    'pending',
+    '',
+    '',
+    '',
+  ]];
+  const token = await service.getAccessToken();
+  const response = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${service.spreadsheetId}/values/AnalyticsSubmissions!A:K:append?valueInputOption=RAW`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values }),
+    }
+  );
+  if (!response.ok) throw new Error('Failed to add analytics submission');
+  return {
+    submissionId,
+    ...submission,
+    status: 'pending',
+    approvedAt: '',
+    approvedBy: '',
+    rejectionReason: '',
+  };
+}
+
+export async function approveAnalyticsSubmission(submissionId: string, approvedBy: string): Promise<void> {
+  // Update status to 'approved', set approvedAt/by
+  const service = googleSheetsService;
+  const values = await service.fetchSheet('AnalyticsSubmissions!A2:K');
+  const rowIndex = values.findIndex(row => row[0] === submissionId);
+  if (rowIndex === -1) throw new Error('Submission not found');
+  const rowNumber = rowIndex + 2;
+  const now = new Date().toISOString();
+  const updateRange = `AnalyticsSubmissions!H${rowNumber}:J${rowNumber}`;
+  const token = await service.getAccessToken();
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${service.spreadsheetId}/values/${updateRange}?valueInputOption=RAW`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values: [['approved', now, approvedBy]] }),
+    }
+  );
+
+  // Update department streaks
+  const submission = values[rowIndex];
+  if (!submission || !Array.isArray(submission)) {
+    throw new Error('Invalid submission data');
+  }
+  const department = submission[1] ?? ''; // Department is in column B
+  const dueDate = submission[2] ?? ''; // Due date is in column C
+  
+  // Get current streaks for this department
+  const currentStreaks = await getDepartmentStreaks();
+  const currentStreak = currentStreaks.find(s => s.department === department);
+  
+  // Calculate new streak
+  let newCurrentStreak = 1;
+  let newLongestStreak = 1;
+  
+  if (currentStreak) {
+    // Check if this is a consecutive submission (within expected timeframe)
+    const lastApprovedDate = currentStreak.lastApprovedSubmissionDate;
+    if (lastApprovedDate) {
+      const lastDate = new Date(lastApprovedDate);
+      const currentDate = new Date(dueDate);
+      const daysDiff = Math.abs(currentDate.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+      
+      // If within 14 days, consider it consecutive
+      if (daysDiff <= 14) {
+        newCurrentStreak = currentStreak.currentStreak + 1;
+      }
+    }
+    
+    newLongestStreak = Math.max(currentStreak.longestStreak, newCurrentStreak);
+  }
+  
+  // Update the streak
+  await updateDepartmentStreaks(department, {
+    currentStreak: newCurrentStreak,
+    longestStreak: newLongestStreak,
+    lastApprovedSubmissionDate: dueDate,
+  });
+}
+
+export async function rejectAnalyticsSubmission(submissionId: string, approvedBy: string, reason: string): Promise<void> {
+  // Update status to 'rejected', set approvedAt/by, rejectionReason
+  const service = googleSheetsService;
+  const values = await service.fetchSheet('AnalyticsSubmissions!A2:K');
+  const rowIndex = values.findIndex(row => row[0] === submissionId);
+  if (rowIndex === -1) throw new Error('Submission not found');
+  const rowNumber = rowIndex + 2;
+  const now = new Date().toISOString();
+  const updateRange = `AnalyticsSubmissions!H${rowNumber}:K${rowNumber}`;
+  const token = await service.getAccessToken();
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${service.spreadsheetId}/values/${updateRange}?valueInputOption=RAW`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ values: [['rejected', now, approvedBy, reason]] }),
+    }
+  );
+}
+
+export async function getDepartmentStreaks(): Promise<DepartmentStreak[]> {
+  // Fetch from DepartmentStreaks sheet
+  const service = googleSheetsService;
+  await service.createSheetIfNotExists('DepartmentStreaks', [
+    'Department', 'Current Streak', 'Longest Streak', 'Last Approved Submission Date'
+  ]);
+  const values = await service.fetchSheet('DepartmentStreaks!A2:D');
+  return (values || []).map((row) => {
+    if (!Array.isArray(row)) row = [];
+    const department = row[0] ?? '';
+    const currentStreak = row[1] ?? '0';
+    const longestStreak = row[2] ?? '0';
+    const lastApprovedSubmissionDate = row[3] ?? '';
+    return {
+      department,
+      currentStreak: Number(currentStreak) || 0,
+      longestStreak: Number(longestStreak) || 0,
+      lastApprovedSubmissionDate,
+    };
+  });
+}
+
+export async function updateDepartmentStreaks(department: string, streak: Partial<DepartmentStreak>): Promise<void> {
+  // Update streaks for department
+  const service = googleSheetsService;
+  await service.createSheetIfNotExists('DepartmentStreaks', [
+    'Department', 'Current Streak', 'Longest Streak', 'Last Approved Submission Date'
+  ]);
+  const values = await service.fetchSheet('DepartmentStreaks!A2:D');
+  const rowIndex = values.findIndex(row => row[0] === department);
+  const rowNumber = rowIndex + 2;
+  const token = await service.getAccessToken();
+  if (rowIndex === -1) {
+    // Insert new row
+    const insertValues = [[
+      department,
+      streak.currentStreak ?? 0,
+      streak.longestStreak ?? 0,
+      streak.lastApprovedSubmissionDate ?? '',
+    ]];
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${service.spreadsheetId}/values/DepartmentStreaks!A:D:append?valueInputOption=RAW`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ values: insertValues }),
+      }
+    );
+  } else {
+    // Update existing row
+    const updateRange = `DepartmentStreaks!B${rowNumber}:D${rowNumber}`;
+    await fetch(
+      `https://sheets.googleapis.com/v4/spreadsheets/${service.spreadsheetId}/values/${updateRange}?valueInputOption=RAW`,
+      {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ values: [[
+          streak.currentStreak ?? (values[rowIndex]?.[1] ?? 0),
+          streak.longestStreak ?? (values[rowIndex]?.[2] ?? 0),
+          streak.lastApprovedSubmissionDate ?? (values[rowIndex]?.[3] ?? ''),
+        ]] }),
+      }
+    );
+  }
+}
+
 class GoogleSheetsService {
-  private readonly spreadsheetId: string;
+  public readonly spreadsheetId: string;
   private readonly clientEmail: string;
   private cache: {
     clients?: { data: Client[]; timestamp: number } | undefined;
@@ -61,7 +347,7 @@ class GoogleSheetsService {
     return Date.now() - cacheEntry.timestamp < this.CACHE_DURATION;
   }
 
-  private async getAccessToken(): Promise<string> {
+  public async getAccessToken(): Promise<string> {
     try {
       const now = Math.floor(Date.now() / 1000);
       console.log('Getting JWT secret...');
@@ -122,7 +408,7 @@ class GoogleSheetsService {
     }
   }
 
-  private async fetchSheet(range: string): Promise<any[][]> {
+  public async fetchSheet(range: string): Promise<any[][]> {
     try {
       const token = await this.getAccessToken();
       const response = await fetch(
@@ -152,7 +438,7 @@ class GoogleSheetsService {
     }
   }
 
-  private async createSheetIfNotExists(sheetName: string, headers: string[]): Promise<void> {
+  public async createSheetIfNotExists(sheetName: string, headers: string[]): Promise<void> {
     try {
       const token = await this.getAccessToken();
       
@@ -403,7 +689,7 @@ class GoogleSheetsService {
         identifier,
         utmUrl,
         createdAt,
-        department: department as 'marketing' | 'sales' | 'social' | 'others',
+        department: department as 'marketing' | 'sales' | 'social' | 'others' | 'affiliates',
       }));
 
       this.cache.utmRecords = {
@@ -450,7 +736,8 @@ class GoogleSheetsService {
 
   private async _addSource(source: Omit<Source, 'sourceId'>): Promise<Source> {
     const token = await this.getAccessToken();
-    const newSourceId = `source-${Date.now()}`;
+    const prefix = (source as any).sourceIdPrefix || 'source-';
+    const newSourceId = `${prefix}${Date.now()}`;
     const values = [[newSourceId, source.name, source.abbr]];
 
     const response = await fetch(

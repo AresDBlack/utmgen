@@ -26,7 +26,7 @@ import type { UTMRecord, Client, Campaign, SourceType } from "../services/google
 
 
 interface UTMLinkListProps {
-  department: 'marketing' | 'sales' | 'social' | 'others';
+  department: 'marketing' | 'sales' | 'social' | 'others' | 'affiliates';
   reloadTrigger?: number;
 }
 

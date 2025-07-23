@@ -1,19 +1,15 @@
 import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 
-const Navbar = () => {
+const analyticsNavItems = [
+  { name: 'Home', path: '/analytics-home' },
+  { name: 'Submissions', path: '/analytics-submissions-table' },
+  { name: 'Leaderboard', path: '/analytics-leaderboard' },
+  { name: 'Exec Approval', path: '/exec-analytics-approval' },
+];
+
+const AnalyticsNavbar = () => {
   const location = useLocation();
-
-  const navItems = [
-    { name: 'Home', path: '/' },
-    { name: 'Marketing', path: '/marketing' },
-    { name: 'Sales', path: '/sales' },
-    { name: 'Social Media', path: '/social' },
-    { name: 'Others', path: '/others' },
-    { name: 'Analytics', path: '/analytics-home' },
-    { name: 'Affiliates', path: '/affiliates' },
-  ];
-
   return (
     <AppBar 
       position="static" 
@@ -36,10 +32,10 @@ const Navbar = () => {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          UTM Generator
+          Analytics
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
-          {navItems.map((item) => (
+          {analyticsNavItems.map((item) => (
             <Button
               key={item.name}
               component={Link}
@@ -76,4 +72,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar; 
+export default AnalyticsNavbar; 

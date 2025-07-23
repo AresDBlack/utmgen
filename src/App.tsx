@@ -7,8 +7,14 @@ import Sales from './pages/Sales';
 import Social from './pages/Social';
 import Others from './pages/Others';
 import Analytics from './pages/Analytics';
+import Affiliates from './pages/Affiliates';
 import Navbar from './components/Navbar';
 import { Box } from '@mui/material';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import AnalyticsLeaderboard from './pages/AnalyticsLeaderboard';
+import ExecAnalyticsApproval from './pages/ExecAnalyticsApproval';
+import AnalyticsHome from './pages/AnalyticsHome';
+import AnalyticsSubmissionsTable from './pages/AnalyticsSubmissionsTable';
 
 const getTheme = (pathname: string) => {
   const baseTheme: ThemeOptions = {
@@ -133,6 +139,23 @@ const getTheme = (pathname: string) => {
           },
         },
       });
+    case '/affiliates':
+      return createTheme({
+        ...baseTheme,
+        palette: {
+          ...baseTheme.palette,
+          primary: {
+            main: '#06b6d4',
+            light: '#67e8f9',
+            dark: '#0e7490',
+          },
+          secondary: {
+            main: '#a21caf',
+            light: '#e879f9',
+            dark: '#701a75',
+          },
+        },
+      });
     case '/':
       return createTheme(baseTheme);
     default:
@@ -155,6 +178,8 @@ const GradientLine = () => {
         return 'linear-gradient(45deg, #8b5cf6, #10b981)';
       case '/analytics':
         return 'linear-gradient(45deg, #8b5cf6, #10b981)';
+      case '/affiliates':
+        return 'linear-gradient(45deg, #06b6d4, #a21caf)';
       case '/':
         return 'linear-gradient(45deg, #8b5cf6, #ec4899)';
       default:
@@ -216,6 +241,13 @@ const AppContent = () => {
             <Route path="/social" element={<Social />} />
             <Route path="/others" element={<Others />} />
             <Route path="/analytics" element={<Analytics />} />
+            <Route path="/affiliates" element={<Affiliates />} />
+            <Route path="/analytics-dashboard" element={<AnalyticsDashboard />} />
+            <Route path="/analytics-dashboard/:department" element={<AnalyticsDashboard />} />
+            <Route path="/analytics-leaderboard" element={<AnalyticsLeaderboard />} />
+            <Route path="/exec-analytics-approval" element={<ExecAnalyticsApproval />} />
+            <Route path="/analytics-home" element={<AnalyticsHome />} />
+            <Route path="/analytics-submissions-table" element={<AnalyticsSubmissionsTable />} />
           </Routes>
         </Box>
       </Box>

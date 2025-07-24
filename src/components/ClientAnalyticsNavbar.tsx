@@ -27,9 +27,9 @@ const ClientAnalyticsNavbar: React.FC<ClientAnalyticsNavbarProps> = ({
   const theme = useTheme();
 
   const navItems = [
-    { path: '/client-analytics/leaderboards', label: 'Leaderboards', icon: <BarChart /> },
-    { path: '/client-analytics/table', label: 'Table View', icon: <TableChart /> },
-    { path: '/client-analytics/summaries', label: 'Summaries', icon: <Assessment /> },
+    { path: '/client-analytics-leaderboards', label: 'Leaderboards', icon: <BarChart /> },
+    { path: '/client-analytics-table', label: 'Table View', icon: <TableChart /> },
+    { path: '/client-analytics-summaries', label: 'Summaries', icon: <Assessment /> },
   ];
 
   const getGradient = () => {

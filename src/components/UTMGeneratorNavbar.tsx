@@ -27,7 +27,6 @@ const UTMGeneratorNavbar = () => {
         background: 'rgba(0, 0, 0, 0.9)',
         backdropFilter: 'blur(10px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        mt: '64px',
       }}
     >
       <Toolbar>

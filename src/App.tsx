@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-route
 import { ThemeProvider, createTheme, ThemeOptions } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Navbar from './components/Navbar';
+import UTMGeneratorNavbar from './components/UTMGeneratorNavbar';
 import Home from './pages/Home';
 import Marketing from './pages/Marketing';
 import Sales from './pages/Sales';
@@ -246,12 +247,42 @@ const AppContent = () => {
             <Route path="/" element={<Home />} />
 
             {/* UTM Generator Section */}
-            <Route path="/utm-generator" element={<Marketing />} />
-            <Route path="/sales" element={<Sales />} />
-            <Route path="/marketing" element={<Marketing />} />
-            <Route path="/social" element={<Social />} />
-            <Route path="/others" element={<Others />} />
-            <Route path="/affiliates" element={<Affiliates />} />
+            <Route path="/utm-generator" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Marketing />
+              </>
+            } />
+            <Route path="/sales" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Sales />
+              </>
+            } />
+            <Route path="/marketing" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Marketing />
+              </>
+            } />
+            <Route path="/social" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Social />
+              </>
+            } />
+            <Route path="/others" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Others />
+              </>
+            } />
+            <Route path="/affiliates" element={
+              <>
+                <UTMGeneratorNavbar />
+                <Affiliates />
+              </>
+            } />
 
             {/* Analytics Submission Section */}
             <Route path="/analytics-home" element={<AnalyticsHome />} />

@@ -22,6 +22,7 @@ import {
   type ClientAnalyticsBreakdown 
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
+import DateFilter from '../components/DateFilter';
 import { useSearchParams } from 'react-router-dom';
 
 interface TabPanelProps {
@@ -51,6 +52,8 @@ const ClientAnalyticsLeaderboards = () => {
   const [breakdown, setBreakdown] = useState<ClientAnalyticsBreakdown | null>(null);
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -58,7 +61,9 @@ const ClientAnalyticsLeaderboards = () => {
     setLoading(true);
     try {
       const client = selectedClient === 'All' ? undefined : selectedClient as 'Danny' | 'Nadine' | 'Shaun';
-      const data = await getClientAnalyticsBreakdown(client);
+      const startDateStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+      const endDateStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+      const data = await getClientAnalyticsBreakdown(client, startDateStr, endDateStr);
       setBreakdown(data);
     } catch (error) {
       console.error('Error fetching client analytics:', error);
@@ -69,7 +74,7 @@ const ClientAnalyticsLeaderboards = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedClient]);
+  }, [selectedClient, startDate, endDate]);
 
   const handleClientChange = (client: string) => {
     setSearchParams({ client });
@@ -77,6 +82,19 @@ const ClientAnalyticsLeaderboards = () => {
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const handleStartDateChange = (date: Date | null) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date: Date | null) => {
+    setEndDate(date);
+  };
+
+  const handleClearFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -150,6 +168,25 @@ const ClientAnalyticsLeaderboards = () => {
             Top-performing UTM parameters for {selectedClient === 'All' ? 'all clients' : selectedClient}
           </Typography>
         </Box>
+
+        {/* Date Filter */}
+        <Card sx={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px',
+          mb: 3,
+        }}>
+          <CardContent sx={{ p: 3 }}>
+            <DateFilter
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onClear={handleClearFilter}
+            />
+          </CardContent>
+        </Card>
 
         <Card sx={{
           background: 'rgba(255, 255, 255, 0.05)',

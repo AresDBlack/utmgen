@@ -22,6 +22,7 @@ import {
   type ClientAnalyticsBreakdown
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
+import DateFilter from '../components/DateFilter';
 import { useSearchParams } from 'react-router-dom';
 
 const ClientAnalyticsSummaries = () => {
@@ -29,6 +30,8 @@ const ClientAnalyticsSummaries = () => {
   const [summaries, setSummaries] = useState<{ [key: string]: ClientAnalyticsSummary }>({});
   const [breakdowns, setBreakdowns] = useState<{ [key: string]: ClientAnalyticsBreakdown }>({});
   const [loading, setLoading] = useState(true);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -36,11 +39,14 @@ const ClientAnalyticsSummaries = () => {
     setLoading(true);
     try {
       const clients = selectedClient === 'All' ? ['Danny', 'Nadine', 'Shaun'] : [selectedClient];
+      const startDateStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+      const endDateStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
+      
       const summaryPromises = clients.map(client => 
-        getClientAnalyticsSummary(client as 'Danny' | 'Nadine' | 'Shaun')
+        getClientAnalyticsSummary(client as 'Danny' | 'Nadine' | 'Shaun', startDateStr, endDateStr)
       );
       const breakdownPromises = clients.map(client => 
-        getClientAnalyticsBreakdown(client as 'Danny' | 'Nadine' | 'Shaun')
+        getClientAnalyticsBreakdown(client as 'Danny' | 'Nadine' | 'Shaun', startDateStr, endDateStr)
       );
 
       const [summaryResults, breakdownResults] = await Promise.all([
@@ -71,10 +77,23 @@ const ClientAnalyticsSummaries = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedClient]);
+  }, [selectedClient, startDate, endDate]);
 
   const handleClientChange = (client: string) => {
     setSearchParams({ client });
+  };
+
+  const handleStartDateChange = (date: Date | null) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date: Date | null) => {
+    setEndDate(date);
+  };
+
+  const handleClearFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -154,6 +173,25 @@ const ClientAnalyticsSummaries = () => {
             Performance overview for {selectedClient === 'All' ? 'all clients' : selectedClient}
           </Typography>
         </Box>
+
+        {/* Date Filter */}
+        <Card sx={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px',
+          mb: 4,
+        }}>
+          <CardContent sx={{ p: 3 }}>
+            <DateFilter
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onClear={handleClearFilter}
+            />
+          </CardContent>
+        </Card>
 
         {/* Client Summary Cards */}
         <Grid container spacing={3} sx={{ mb: 6 }}>

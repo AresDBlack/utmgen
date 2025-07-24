@@ -742,7 +742,7 @@ class GoogleSheetsService {
 
   // --- Client Analytics Methods ---
 
-  async getClientAnalytics(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsRecord[]> {
+  async getClientAnalytics(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<ClientAnalyticsRecord[]> {
     const clients = client ? [client] : ['Danny', 'Nadine', 'Shaun'];
     const allRecords: ClientAnalyticsRecord[] = [];
 
@@ -769,7 +769,21 @@ class GoogleSheetsService {
           client: clientName as 'Danny' | 'Nadine' | 'Shaun',
         }));
 
-        allRecords.push(...records);
+        // Filter by date range if provided
+        const filteredRecords = records.filter(record => {
+          if (!startDate && !endDate) return true;
+          
+          const recordDate = new Date(record.date);
+          const start = startDate ? new Date(startDate) : null;
+          const end = endDate ? new Date(endDate) : null;
+          
+          if (start && recordDate < start) return false;
+          if (end && recordDate > end) return false;
+          
+          return true;
+        });
+
+        allRecords.push(...filteredRecords);
       } catch (error) {
         console.error(`Error fetching ${clientName} analytics:`, error);
       }
@@ -778,8 +792,8 @@ class GoogleSheetsService {
     return allRecords;
   }
 
-  async getClientAnalyticsSummary(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsSummary> {
-    const records = await this.getClientAnalytics(client);
+  async getClientAnalyticsSummary(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<ClientAnalyticsSummary> {
+    const records = await this.getClientAnalytics(client, startDate, endDate);
     
     const totalRevenue = records.reduce((sum, record) => sum + record.afterStripeFees, 0);
     const totalCommission = records.reduce((sum, record) => sum + record.commission, 0);
@@ -801,8 +815,8 @@ class GoogleSheetsService {
     };
   }
 
-  async getClientAnalyticsBreakdown(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsBreakdown> {
-    const records = await this.getClientAnalytics(client);
+  async getClientAnalyticsBreakdown(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<ClientAnalyticsBreakdown> {
+    const records = await this.getClientAnalytics(client, startDate, endDate);
     
     const breakdown: ClientAnalyticsBreakdown = {
       utm_source: {},
@@ -1037,11 +1051,11 @@ class GoogleSheetsService {
 export const googleSheetsService = new GoogleSheetsService();
 
 // Export client analytics functions
-export const getClientAnalytics = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
-  googleSheetsService.getClientAnalytics(client);
+export const getClientAnalytics = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
+  googleSheetsService.getClientAnalytics(client, startDate, endDate);
 
-export const getClientAnalyticsSummary = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
-  googleSheetsService.getClientAnalyticsSummary(client);
+export const getClientAnalyticsSummary = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
+  googleSheetsService.getClientAnalyticsSummary(client, startDate, endDate);
 
-export const getClientAnalyticsBreakdown = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
-  googleSheetsService.getClientAnalyticsBreakdown(client);
+export const getClientAnalyticsBreakdown = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
+  googleSheetsService.getClientAnalyticsBreakdown(client, startDate, endDate);

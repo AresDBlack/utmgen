@@ -26,6 +26,7 @@ import {
   type ClientAnalyticsSummary
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
+import DateFilter from '../components/DateFilter';
 import { useSearchParams } from 'react-router-dom';
 
 const ClientAnalyticsTable = () => {
@@ -36,6 +37,8 @@ const ClientAnalyticsTable = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -43,9 +46,11 @@ const ClientAnalyticsTable = () => {
     setLoading(true);
     try {
       const client = selectedClient === 'All' ? undefined : selectedClient as 'Danny' | 'Nadine' | 'Shaun';
+      const startDateStr = startDate ? startDate.toISOString().split('T')[0] : undefined;
+      const endDateStr = endDate ? endDate.toISOString().split('T')[0] : undefined;
       const [recordsData, summaryData] = await Promise.all([
-        getClientAnalytics(client),
-        getClientAnalyticsSummary(client)
+        getClientAnalytics(client, startDateStr, endDateStr),
+        getClientAnalyticsSummary(client, startDateStr, endDateStr)
       ]);
       setRecords(recordsData);
       setSummary(summaryData);
@@ -58,10 +63,23 @@ const ClientAnalyticsTable = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedClient]);
+  }, [selectedClient, startDate, endDate]);
 
   const handleClientChange = (client: string) => {
     setSearchParams({ client });
+  };
+
+  const handleStartDateChange = (date: Date | null) => {
+    setStartDate(date);
+  };
+
+  const handleEndDateChange = (date: Date | null) => {
+    setEndDate(date);
+  };
+
+  const handleClearFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
   };
 
   const formatCurrency = (amount: number) => {
@@ -142,6 +160,25 @@ const ClientAnalyticsTable = () => {
             Complete data for {selectedClient === 'All' ? 'all clients' : selectedClient}
           </Typography>
         </Box>
+
+        {/* Date Filter */}
+        <Card sx={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '16px',
+          mb: 3,
+        }}>
+          <CardContent sx={{ p: 3 }}>
+            <DateFilter
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
+              onClear={handleClearFilter}
+            />
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         {summary && (

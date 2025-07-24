@@ -8,14 +8,16 @@ import {
 } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
 
-const Navbar = () => {
+const UTMGeneratorNavbar = () => {
   const location = useLocation();
 
   const navItems = [
-    { name: 'Home', path: '/' },
-    { name: 'UTM Generator', path: '/utm-generator' },
-    { name: 'Analytics Submission', path: '/analytics-home' },
-    { name: 'Client Analytics', path: '/client-analytics-leaderboards' },
+    { name: 'Home', path: '/utm-generator' },
+    { name: 'Sales', path: '/sales' },
+    { name: 'Marketing', path: '/marketing' },
+    { name: 'Social Media', path: '/social' },
+    { name: 'Others', path: '/others' },
+    { name: 'Affiliates', path: '/affiliates' },
   ];
 
   return (
@@ -31,7 +33,7 @@ const Navbar = () => {
         <Typography 
           variant="h6" 
           component={Link} 
-          to="/"
+          to="/utm-generator"
           sx={{ 
             flexGrow: 1, 
             textDecoration: 'none', 
@@ -42,7 +44,7 @@ const Navbar = () => {
             WebkitTextFillColor: 'transparent'
           }}
         >
-          justSimplyMarketing
+          UTM Generator
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           {navItems.map((item) => (
@@ -70,4 +72,4 @@ const Navbar = () => {
   );
 };
 
-export default Navbar; 
+export default UTMGeneratorNavbar; 

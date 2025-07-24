@@ -746,7 +746,7 @@ class GoogleSheetsService {
 
     for (const clientName of clients) {
       try {
-        const data = await this.fetchSheet(`${clientName}!A:O`);
+        const data = await this.fetchSheet(`${clientName}!A:P`);
         const records: ClientAnalyticsRecord[] = data.slice(1).map(row => ({
           name: row[0] || '',
           email: row[1] || '',
@@ -758,12 +758,12 @@ class GoogleSheetsService {
           type: row[7] || '',
           nextPaymentDate: row[8] || '',
           month: row[9] || '',
-          afterStripeFees: parseFloat(row[10] || '0') || 0,
+          afterStripeFees: parseFloat((row[10] || '0').replace('$', '').replace(',', '')) || 0,
           commissionPercentage: parseFloat(row[11] || '0') || 0,
-          commission: parseFloat(row[12] || '0') || 0,
+          commission: parseFloat((row[12] || '0').replace('$', '').replace(',', '')) || 0,
           campaign: row[13] || '',
           medium: row[14] || '',
-          source: row[15] || '',
+          source: row[15] || 'Unknown',
           client: clientName as 'Danny' | 'Nadine' | 'Shaun',
         }));
 

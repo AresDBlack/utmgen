@@ -206,6 +206,21 @@ const ClientAnalyticsTable = () => {
                 </CardContent>
               </Card>
             </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+              }}>
+                <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                  <Typography variant="h4" sx={{ color: '#8b5cf6', fontWeight: 700, mb: 1 }}>
+                    {summary.uniqueProducts}
+                  </Typography>
+                  <Typography sx={{ color: '#94a3b8' }}>Unique Products</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           </Grid>
         )}
 

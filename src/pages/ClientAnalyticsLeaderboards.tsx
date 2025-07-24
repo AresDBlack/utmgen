@@ -180,6 +180,7 @@ const ClientAnalyticsLeaderboards = () => {
               <Tab label="UTM Source" />
               <Tab label="UTM Medium" />
               <Tab label="UTM Campaign" />
+              <Tab label="Product" />
             </Tabs>
           </Box>
 
@@ -301,6 +302,50 @@ const ClientAnalyticsLeaderboards = () => {
                         />
                       </TableCell>
                       <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{campaign}</TableCell>
+                      <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                        {formatCurrency(data.revenue)}
+                      </TableCell>
+                      <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
+                      <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                        {formatCurrency(data.commission)}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </TabPanel>
+
+          <TabPanel value={tabValue} index={3}>
+            <TableContainer component={Paper} sx={{ 
+              background: 'transparent',
+              boxShadow: 'none',
+            }}>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {sortByRevenue(breakdown?.product || {}).map(([product, data], index) => (
+                    <TableRow key={product} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                      <TableCell>
+                        <Chip 
+                          label={`#${index + 1}`}
+                          sx={{ 
+                            background: getGradient(index),
+                            color: 'white',
+                            fontWeight: 600,
+                            minWidth: 40,
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{product}</TableCell>
                       <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
                         {formatCurrency(data.revenue)}
                       </TableCell>

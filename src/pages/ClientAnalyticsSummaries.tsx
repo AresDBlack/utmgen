@@ -327,6 +327,41 @@ const ClientAnalyticsSummaries = () => {
                       </Table>
                     </TableContainer>
                   </Grid>
+                  
+                  <Grid item xs={12}>
+                    <Typography variant="h6" sx={{ color: '#94a3b8', mb: 2 }}>
+                      Top Products
+                    </Typography>
+                    <TableContainer component={Paper} sx={{ 
+                      background: 'transparent',
+                      boxShadow: 'none',
+                    }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
+                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {sortByRevenue(breakdown.product || {}).map(([product, data]) => (
+                            <TableRow key={product}>
+                              <TableCell sx={{ color: '#f8fafc' }}>{product}</TableCell>
+                              <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                                {formatCurrency(data.revenue)}
+                              </TableCell>
+                              <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
+                              <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                                {formatCurrency(data.commission)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Grid>
                 </Grid>
               </CardContent>
             </Card>

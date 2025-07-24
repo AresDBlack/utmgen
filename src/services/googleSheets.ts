@@ -92,6 +92,7 @@ export interface ClientAnalyticsSummary {
   uniqueCampaigns: number;
   uniqueSources: number;
   uniqueMediums: number;
+  uniqueProducts: number;
 }
 
 export interface ClientAnalyticsBreakdown {
@@ -99,6 +100,7 @@ export interface ClientAnalyticsBreakdown {
   utm_medium: { [key: string]: { revenue: number; sales: number; commission: number } };
   utm_campaign: { [key: string]: { revenue: number; sales: number; commission: number } };
   utm_content: { [key: string]: { revenue: number; sales: number; commission: number } };
+  product: { [key: string]: { revenue: number; sales: number; commission: number } };
 }
 
 // Utility: Calculate due dates for a given year
@@ -786,6 +788,7 @@ class GoogleSheetsService {
     const uniqueCampaigns = new Set(records.map(r => r.campaign)).size;
     const uniqueSources = new Set(records.map(r => r.source)).size;
     const uniqueMediums = new Set(records.map(r => r.medium)).size;
+    const uniqueProducts = new Set(records.map(r => r.product)).size;
 
     return {
       totalRevenue,
@@ -794,6 +797,7 @@ class GoogleSheetsService {
       uniqueCampaigns,
       uniqueSources,
       uniqueMediums,
+      uniqueProducts,
     };
   }
 
@@ -805,6 +809,7 @@ class GoogleSheetsService {
       utm_medium: {},
       utm_campaign: {},
       utm_content: {},
+      product: {},
     };
 
     records.forEach(record => {
@@ -834,6 +839,15 @@ class GoogleSheetsService {
       breakdown.utm_campaign[campaign]!.revenue += record.afterStripeFees;
       breakdown.utm_campaign[campaign]!.sales += 1;
       breakdown.utm_campaign[campaign]!.commission += record.commission;
+
+      // Group by product
+      const product = record.product || 'Unknown';
+      if (!breakdown.product[product]) {
+        breakdown.product[product] = { revenue: 0, sales: 0, commission: 0 };
+      }
+      breakdown.product[product]!.revenue += record.afterStripeFees;
+      breakdown.product[product]!.sales += 1;
+      breakdown.product[product]!.commission += record.commission;
     });
 
     return breakdown;

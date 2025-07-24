@@ -63,6 +63,44 @@ export interface DepartmentStreak {
   lastApprovedSubmissionDate: string;
 }
 
+// --- Client Analytics ---
+
+export interface ClientAnalyticsRecord {
+  name: string;
+  email: string;
+  phone: string;
+  product: string;
+  price: number;
+  paid: number;
+  date: string;
+  type: string;
+  nextPaymentDate: string;
+  month: string;
+  afterStripeFees: number;
+  commissionPercentage: number;
+  commission: number;
+  campaign: string;
+  medium: string;
+  source: string;
+  client: 'Danny' | 'Nadine' | 'Shaun';
+}
+
+export interface ClientAnalyticsSummary {
+  totalRevenue: number;
+  totalCommission: number;
+  totalSales: number;
+  uniqueCampaigns: number;
+  uniqueSources: number;
+  uniqueMediums: number;
+}
+
+export interface ClientAnalyticsBreakdown {
+  utm_source: { [key: string]: { revenue: number; sales: number; commission: number } };
+  utm_medium: { [key: string]: { revenue: number; sales: number; commission: number } };
+  utm_campaign: { [key: string]: { revenue: number; sales: number; commission: number } };
+  utm_content: { [key: string]: { revenue: number; sales: number; commission: number } };
+}
+
 // Utility: Calculate due dates for a given year
 export function getDueDates(year: number): string[] {
   const departments = [
@@ -673,35 +711,132 @@ class GoogleSheetsService {
   }
 
   async getUTMRecords(): Promise<UTMRecord[]> {
-    try {
-      if (this.isCacheValid(this.cache.utmRecords)) {
-        return this.cache.utmRecords!.data;
-      }
+    if (this.isCacheValid(this.cache.utmRecords)) {
+      return this.cache.utmRecords!.data;
+    }
 
-      const values = await this.fetchSheet('UTMRecords!A2:J');
-      const utmRecords = values.map(([utmId, url, client, campaign, source, sourceType, identifier, utmUrl, createdAt, department]) => ({
-        utmId,
-        url,
-        client,
-        campaign,
-        source,
-        sourceType,
-        identifier,
-        utmUrl,
-        createdAt,
-        department: department as 'marketing' | 'sales' | 'social' | 'others' | 'affiliates',
+    try {
+      const data = await this.fetchSheet('UTMRecords!A:J');
+      const records: UTMRecord[] = data.slice(1).map(row => ({
+        utmId: row[0] || '',
+        url: row[1] || '',
+        client: row[2] || '',
+        campaign: row[3] || '',
+        source: row[4] || '',
+        sourceType: row[5] || '',
+        identifier: row[6] || '',
+        utmUrl: row[7] || '',
+        createdAt: row[8] || '',
+        department: (row[9] as any) || 'marketing',
       }));
 
-      this.cache.utmRecords = {
-        data: utmRecords,
-        timestamp: Date.now()
-      };
-
-      return utmRecords;
+      this.cache.utmRecords = { data: records, timestamp: Date.now() };
+      return records;
     } catch (error) {
-      console.error('Error in getUTMRecords:', error);
-      throw error;
+      console.error('Error fetching UTM records:', error);
+      return [];
     }
+  }
+
+  // --- Client Analytics Methods ---
+
+  async getClientAnalytics(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsRecord[]> {
+    const clients = client ? [client] : ['Danny', 'Nadine', 'Shaun'];
+    const allRecords: ClientAnalyticsRecord[] = [];
+
+    for (const clientName of clients) {
+      try {
+        const data = await this.fetchSheet(`${clientName}!A:O`);
+        const records: ClientAnalyticsRecord[] = data.slice(1).map(row => ({
+          name: row[0] || '',
+          email: row[1] || '',
+          phone: row[2] || '',
+          product: row[3] || '',
+          price: parseFloat(row[4] || '0') || 0,
+          paid: parseFloat(row[5] || '0') || 0,
+          date: row[6] || '',
+          type: row[7] || '',
+          nextPaymentDate: row[8] || '',
+          month: row[9] || '',
+          afterStripeFees: parseFloat(row[10] || '0') || 0,
+          commissionPercentage: parseFloat(row[11] || '0') || 0,
+          commission: parseFloat(row[12] || '0') || 0,
+          campaign: row[13] || '',
+          medium: row[14] || '',
+          source: row[15] || '',
+          client: clientName as 'Danny' | 'Nadine' | 'Shaun',
+        }));
+
+        allRecords.push(...records);
+      } catch (error) {
+        console.error(`Error fetching ${clientName} analytics:`, error);
+      }
+    }
+
+    return allRecords;
+  }
+
+  async getClientAnalyticsSummary(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsSummary> {
+    const records = await this.getClientAnalytics(client);
+    
+    const totalRevenue = records.reduce((sum, record) => sum + record.afterStripeFees, 0);
+    const totalCommission = records.reduce((sum, record) => sum + record.commission, 0);
+    const totalSales = records.length;
+    
+    const uniqueCampaigns = new Set(records.map(r => r.campaign)).size;
+    const uniqueSources = new Set(records.map(r => r.source)).size;
+    const uniqueMediums = new Set(records.map(r => r.medium)).size;
+
+    return {
+      totalRevenue,
+      totalCommission,
+      totalSales,
+      uniqueCampaigns,
+      uniqueSources,
+      uniqueMediums,
+    };
+  }
+
+  async getClientAnalyticsBreakdown(client?: 'Danny' | 'Nadine' | 'Shaun'): Promise<ClientAnalyticsBreakdown> {
+    const records = await this.getClientAnalytics(client);
+    
+    const breakdown: ClientAnalyticsBreakdown = {
+      utm_source: {},
+      utm_medium: {},
+      utm_campaign: {},
+      utm_content: {},
+    };
+
+    records.forEach(record => {
+      // Group by source
+      const source = record.source || 'Unknown';
+      if (!breakdown.utm_source[source]) {
+        breakdown.utm_source[source] = { revenue: 0, sales: 0, commission: 0 };
+      }
+      breakdown.utm_source[source]!.revenue += record.afterStripeFees;
+      breakdown.utm_source[source]!.sales += 1;
+      breakdown.utm_source[source]!.commission += record.commission;
+
+      // Group by medium
+      const medium = record.medium || 'Unknown';
+      if (!breakdown.utm_medium[medium]) {
+        breakdown.utm_medium[medium] = { revenue: 0, sales: 0, commission: 0 };
+      }
+      breakdown.utm_medium[medium]!.revenue += record.afterStripeFees;
+      breakdown.utm_medium[medium]!.sales += 1;
+      breakdown.utm_medium[medium]!.commission += record.commission;
+
+      // Group by campaign
+      const campaign = record.campaign || 'Unknown';
+      if (!breakdown.utm_campaign[campaign]) {
+        breakdown.utm_campaign[campaign] = { revenue: 0, sales: 0, commission: 0 };
+      }
+      breakdown.utm_campaign[campaign]!.revenue += record.afterStripeFees;
+      breakdown.utm_campaign[campaign]!.sales += 1;
+      breakdown.utm_campaign[campaign]!.commission += record.commission;
+    });
+
+    return breakdown;
   }
 
   // Rename existing methods to _add* to avoid infinite recursion
@@ -886,3 +1021,13 @@ class GoogleSheetsService {
 }
 
 export const googleSheetsService = new GoogleSheetsService();
+
+// Export client analytics functions
+export const getClientAnalytics = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
+  googleSheetsService.getClientAnalytics(client);
+
+export const getClientAnalyticsSummary = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
+  googleSheetsService.getClientAnalyticsSummary(client);
+
+export const getClientAnalyticsBreakdown = (client?: 'Danny' | 'Nadine' | 'Shaun') => 
+  googleSheetsService.getClientAnalyticsBreakdown(client);

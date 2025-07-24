@@ -11,6 +11,7 @@ const Navbar = () => {
     { name: 'Social Media', path: '/social' },
     { name: 'Others', path: '/others' },
     { name: 'Analytics', path: '/analytics-home' },
+    { name: 'Client Analytics', path: '/client-analytics-leaderboards' },
     { name: 'Affiliates', path: '/affiliates' },
   ];
 

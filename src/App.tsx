@@ -15,6 +15,9 @@ import AnalyticsLeaderboard from './pages/AnalyticsLeaderboard';
 import ExecAnalyticsApproval from './pages/ExecAnalyticsApproval';
 import AnalyticsHome from './pages/AnalyticsHome';
 import AnalyticsSubmissionsTable from './pages/AnalyticsSubmissionsTable';
+import ClientAnalyticsLeaderboards from './pages/ClientAnalyticsLeaderboards';
+import ClientAnalyticsTable from './pages/ClientAnalyticsTable';
+import ClientAnalyticsSummaries from './pages/ClientAnalyticsSummaries';
 
 const getTheme = (pathname: string) => {
   const baseTheme: ThemeOptions = {
@@ -180,6 +183,10 @@ const GradientLine = () => {
         return 'linear-gradient(45deg, #8b5cf6, #10b981)';
       case '/affiliates':
         return 'linear-gradient(45deg, #06b6d4, #a21caf)';
+      case '/client-analytics-leaderboards':
+      case '/client-analytics-table':
+      case '/client-analytics-summaries':
+        return 'linear-gradient(45deg, #06b6d4, #a21caf)';
       case '/':
         return 'linear-gradient(45deg, #8b5cf6, #ec4899)';
       default:
@@ -248,6 +255,9 @@ const AppContent = () => {
             <Route path="/exec-analytics-approval" element={<ExecAnalyticsApproval />} />
             <Route path="/analytics-home" element={<AnalyticsHome />} />
             <Route path="/analytics-submissions-table" element={<AnalyticsSubmissionsTable />} />
+            <Route path="/client-analytics-leaderboards" element={<ClientAnalyticsLeaderboards />} />
+            <Route path="/client-analytics-table" element={<ClientAnalyticsTable />} />
+            <Route path="/client-analytics-summaries" element={<ClientAnalyticsSummaries />} />
           </Routes>
         </Box>
       </Box>

@@ -11,14 +11,11 @@ import {
   TableHead, 
   TableRow, 
   Paper,
-  TextField,
   Grid,
   Chip,
   CircularProgress,
-  TablePagination,
-  InputAdornment
+  TablePagination
 } from '@mui/material';
-import { Search, FilterList } from '@mui/icons-material';
 import { 
   getClientAnalytics, 
   getClientAnalyticsSummary,
@@ -26,7 +23,7 @@ import {
   type ClientAnalyticsSummary
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
-import DateFilter from '../components/DateFilter';
+import ClientAnalyticsFilter from '../components/ClientAnalyticsFilter';
 import { useSearchParams } from 'react-router-dom';
 
 const ClientAnalyticsTable = () => {
@@ -34,11 +31,18 @@ const ClientAnalyticsTable = () => {
   const [records, setRecords] = useState<ClientAnalyticsRecord[]>([]);
   const [summary, setSummary] = useState<ClientAnalyticsSummary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  
+  // Filter states
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [productFilter, setProductFilter] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [mediumFilter, setMediumFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -77,9 +81,14 @@ const ClientAnalyticsTable = () => {
     setEndDate(date);
   };
 
-  const handleClearFilter = () => {
+  const handleClearAllFilters = () => {
     setStartDate(null);
     setEndDate(null);
+    setProductFilter('');
+    setCampaignFilter('');
+    setSourceFilter('');
+    setMediumFilter('');
+    setSearchTerm('');
   };
 
   const formatCurrency = (amount: number) => {
@@ -93,17 +102,40 @@ const ClientAnalyticsTable = () => {
     return new Date(dateString).toLocaleDateString();
   };
 
+  // Get unique values for filter options
+  const availableProducts = Array.from(new Set(records.map(record => record.product))).filter(Boolean);
+  const availableCampaigns = Array.from(new Set(records.map(record => record.campaign))).filter(Boolean);
+  const availableSources = Array.from(new Set(records.map(record => record.source))).filter(Boolean);
+  const availableMediums = Array.from(new Set(records.map(record => record.medium))).filter(Boolean);
+
   const filteredRecords = records.filter(record => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      record.name.toLowerCase().includes(searchLower) ||
-      record.email.toLowerCase().includes(searchLower) ||
-      record.product.toLowerCase().includes(searchLower) ||
-      record.campaign.toLowerCase().includes(searchLower) ||
-      record.medium.toLowerCase().includes(searchLower) ||
-      record.source.toLowerCase().includes(searchLower) ||
-      record.client.toLowerCase().includes(searchLower)
-    );
+    // Product filter
+    if (productFilter && record.product !== productFilter) return false;
+    
+    // Campaign filter
+    if (campaignFilter && record.campaign !== campaignFilter) return false;
+    
+    // Source filter
+    if (sourceFilter && record.source !== sourceFilter) return false;
+    
+    // Medium filter
+    if (mediumFilter && record.medium !== mediumFilter) return false;
+    
+    // Search term
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        record.name.toLowerCase().includes(searchLower) ||
+        record.email.toLowerCase().includes(searchLower) ||
+        record.product.toLowerCase().includes(searchLower) ||
+        record.campaign.toLowerCase().includes(searchLower) ||
+        record.medium.toLowerCase().includes(searchLower) ||
+        record.source.toLowerCase().includes(searchLower) ||
+        record.client.toLowerCase().includes(searchLower)
+      );
+    }
+    
+    return true;
   });
 
   const paginatedRecords = filteredRecords.slice(
@@ -161,24 +193,32 @@ const ClientAnalyticsTable = () => {
           </Typography>
         </Box>
 
-        {/* Date Filter */}
-        <Card sx={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          mb: 3,
-        }}>
-          <CardContent sx={{ p: 3 }}>
-            <DateFilter
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={handleEndDateChange}
-              onClear={handleClearFilter}
-            />
-          </CardContent>
-        </Card>
+        {/* Advanced Filter Component */}
+        <ClientAnalyticsFilter
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+          selectedClient={selectedClient}
+          onClientChange={handleClientChange}
+          productFilter={productFilter}
+          onProductFilterChange={setProductFilter}
+          campaignFilter={campaignFilter}
+          onCampaignFilterChange={setCampaignFilter}
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={setSourceFilter}
+          mediumFilter={mediumFilter}
+          onMediumFilterChange={setMediumFilter}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onClearAll={handleClearAllFilters}
+          availableProducts={availableProducts}
+          availableCampaigns={availableCampaigns}
+          availableSources={availableSources}
+          availableMediums={availableMediums}
+          isExpanded={isFilterExpanded}
+          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+        />
 
         {/* Summary Cards */}
         {summary && (
@@ -191,40 +231,18 @@ const ClientAnalyticsTable = () => {
                 borderRadius: '16px',
               }}>
                 <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography variant="h4" sx={{ color: '#10b981', fontWeight: 700, mb: 1 }}>
-                    {formatCurrency(summary.totalRevenue)}
-                  </Typography>
-                  <Typography sx={{ color: '#94a3b8' }}>Total Revenue</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px',
-              }}>
-                <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography variant="h4" sx={{ color: '#f59e0b', fontWeight: 700, mb: 1 }}>
-                    {formatCurrency(summary.totalCommission)}
-                  </Typography>
-                  <Typography sx={{ color: '#94a3b8' }}>Total Commission</Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '16px',
-              }}>
-                <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography variant="h4" sx={{ color: '#f8fafc', fontWeight: 700, mb: 1 }}>
+                  <Typography variant="h4" sx={{ 
+                    fontWeight: 700, 
+                    mb: 1,
+                    background: 'linear-gradient(45deg, #10b981, #3b82f6)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}>
                     {summary.totalSales}
                   </Typography>
-                  <Typography sx={{ color: '#94a3b8' }}>Total Sales</Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                    Total Sales
+                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -236,10 +254,18 @@ const ClientAnalyticsTable = () => {
                 borderRadius: '16px',
               }}>
                 <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography variant="h4" sx={{ color: '#06b6d4', fontWeight: 700, mb: 1 }}>
-                    {summary.uniqueCampaigns}
+                  <Typography variant="h4" sx={{ 
+                    fontWeight: 700, 
+                    mb: 1,
+                    background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}>
+                    {formatCurrency(summary.totalRevenue)}
                   </Typography>
-                  <Typography sx={{ color: '#94a3b8' }}>Unique Campaigns</Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                    Total Revenue
+                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -251,70 +277,46 @@ const ClientAnalyticsTable = () => {
                 borderRadius: '16px',
               }}>
                 <CardContent sx={{ textAlign: 'center', p: 3 }}>
-                  <Typography variant="h4" sx={{ color: '#8b5cf6', fontWeight: 700, mb: 1 }}>
-                    {summary.uniqueProducts}
+                  <Typography variant="h4" sx={{ 
+                    fontWeight: 700, 
+                    mb: 1,
+                    background: 'linear-gradient(45deg, #8b5cf6, #ec4899)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}>
+                    {formatCurrency(summary.totalCommission)}
                   </Typography>
-                  <Typography sx={{ color: '#94a3b8' }}>Unique Products</Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                    Total Commission
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '16px',
+              }}>
+                <CardContent sx={{ textAlign: 'center', p: 3 }}>
+                  <Typography variant="h4" sx={{ 
+                    fontWeight: 700, 
+                    mb: 1,
+                    background: 'linear-gradient(45deg, #06b6d4, #a21caf)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent'
+                  }}>
+                    {filteredRecords.length}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#94a3b8' }}>
+                    Filtered Records
+                  </Typography>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
         )}
-
-        {/* Search and Filters */}
-        <Card sx={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          mb: 3,
-        }}>
-          <CardContent sx={{ p: 3 }}>
-            <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  placeholder="Search by name, email, product, campaign, medium, source..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search sx={{ color: '#94a3b8' }} />
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      color: '#f8fafc',
-                      '& fieldset': {
-                        borderColor: 'rgba(255, 255, 255, 0.2)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(255, 255, 255, 0.3)',
-                      },
-                      '&.Mui-focused fieldset': {
-                        borderColor: '#06b6d4',
-                      },
-                    },
-                    '& .MuiInputBase-input::placeholder': {
-                      color: '#94a3b8',
-                      opacity: 1,
-                    },
-                  }}
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <FilterList sx={{ color: '#94a3b8' }} />
-                  <Typography sx={{ color: '#94a3b8' }}>
-                    Showing {filteredRecords.length} of {records.length} records
-                  </Typography>
-                </Box>
-              </Grid>
-            </Grid>
-          </CardContent>
-        </Card>
 
         {/* Data Table */}
         <Card sx={{
@@ -323,17 +325,15 @@ const ClientAnalyticsTable = () => {
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '16px',
         }}>
-          <TableContainer component={Paper} sx={{ 
-            background: 'transparent',
-            boxShadow: 'none',
-          }}>
+          <TableContainer>
             <Table>
               <TableHead>
-                <TableRow>
+                <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Name</TableCell>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Email</TableCell>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
-                  <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                  <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Price</TableCell>
+                  <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Paid</TableCell>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Campaign</TableCell>
                   <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Medium</TableCell>
@@ -351,13 +351,24 @@ const ClientAnalyticsTable = () => {
                     <TableCell sx={{ color: '#94a3b8' }}>
                       {record.email}
                     </TableCell>
-                    <TableCell sx={{ color: '#f8fafc' }}>
-                      {record.product}
+                    <TableCell>
+                      <Chip 
+                        label={record.product} 
+                        size="small"
+                        sx={{ 
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          color: '#f8fafc',
+                          fontWeight: 500,
+                        }}
+                      />
                     </TableCell>
                     <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                      {formatCurrency(record.afterStripeFees)}
+                      {formatCurrency(record.price)}
                     </TableCell>
                     <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                      {formatCurrency(record.paid)}
+                    </TableCell>
+                    <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
                       {formatCurrency(record.commission)}
                     </TableCell>
                     <TableCell>

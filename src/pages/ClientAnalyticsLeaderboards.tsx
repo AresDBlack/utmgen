@@ -22,7 +22,7 @@ import {
   type ClientAnalyticsBreakdown 
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
-import DateFilter from '../components/DateFilter';
+import ClientAnalyticsFilter from '../components/ClientAnalyticsFilter';
 import { useSearchParams } from 'react-router-dom';
 
 interface TabPanelProps {
@@ -38,11 +38,15 @@ function TabPanel(props: TabPanelProps) {
     <div
       role="tabpanel"
       hidden={value !== index}
-      id={`leaderboard-tabpanel-${index}`}
-      aria-labelledby={`leaderboard-tab-${index}`}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
       {...other}
     >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          {children}
+        </Box>
+      )}
     </div>
   );
 }
@@ -54,6 +58,12 @@ const ClientAnalyticsLeaderboards = () => {
   const [tabValue, setTabValue] = useState(0);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  const [productFilter, setProductFilter] = useState('');
+  const [campaignFilter, setCampaignFilter] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('');
+  const [mediumFilter, setMediumFilter] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isFilterExpanded, setIsFilterExpanded] = useState(false);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -92,9 +102,14 @@ const ClientAnalyticsLeaderboards = () => {
     setEndDate(date);
   };
 
-  const handleClearFilter = () => {
+  const handleClearAllFilters = () => {
     setStartDate(null);
     setEndDate(null);
+    setProductFilter('');
+    setCampaignFilter('');
+    setSourceFilter('');
+    setMediumFilter('');
+    setSearchTerm('');
   };
 
   const formatCurrency = (amount: number) => {
@@ -104,20 +119,11 @@ const ClientAnalyticsLeaderboards = () => {
     }).format(amount);
   };
 
-  const sortByRevenue = (data: { [key: string]: { revenue: number; sales: number; commission: number } }) => {
-    return Object.entries(data)
-      .sort(([, a], [, b]) => b.revenue - a.revenue)
-      .slice(0, 10); // Top 10
-  };
-
-  const getGradient = (index: number) => {
-    const gradients = [
-      'linear-gradient(45deg, #fbbf24, #f59e0b)', // Gold
-      'linear-gradient(45deg, #94a3b8, #64748b)', // Silver
-      'linear-gradient(45deg, #d97706, #b45309)', // Bronze
-    ];
-    return gradients[index] || 'linear-gradient(45deg, #06b6d4, #a21caf)';
-  };
+  // Get unique values for filter options (placeholder for now)
+  const availableProducts: string[] = [];
+  const availableCampaigns: string[] = [];
+  const availableSources: string[] = [];
+  const availableMediums: string[] = [];
 
   if (loading) {
     return (
@@ -169,24 +175,32 @@ const ClientAnalyticsLeaderboards = () => {
           </Typography>
         </Box>
 
-        {/* Date Filter */}
-        <Card sx={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          mb: 3,
-        }}>
-          <CardContent sx={{ p: 3 }}>
-            <DateFilter
-              startDate={startDate}
-              endDate={endDate}
-              onStartDateChange={handleStartDateChange}
-              onEndDateChange={handleEndDateChange}
-              onClear={handleClearFilter}
-            />
-          </CardContent>
-        </Card>
+        {/* Advanced Filter Component */}
+        <ClientAnalyticsFilter
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={handleStartDateChange}
+          onEndDateChange={handleEndDateChange}
+          selectedClient={selectedClient}
+          onClientChange={handleClientChange}
+          productFilter={productFilter}
+          onProductFilterChange={setProductFilter}
+          campaignFilter={campaignFilter}
+          onCampaignFilterChange={setCampaignFilter}
+          sourceFilter={sourceFilter}
+          onSourceFilterChange={setSourceFilter}
+          mediumFilter={mediumFilter}
+          onMediumFilterChange={setMediumFilter}
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onClearAll={handleClearAllFilters}
+          availableProducts={availableProducts}
+          availableCampaigns={availableCampaigns}
+          availableSources={availableSources}
+          availableMediums={availableMediums}
+          isExpanded={isFilterExpanded}
+          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+        />
 
         <Card sx={{
           background: 'rgba(255, 255, 255, 0.05)',
@@ -222,179 +236,203 @@ const ClientAnalyticsLeaderboards = () => {
           </Box>
 
           <TabPanel value={tabValue} index={0}>
-            <TableContainer component={Paper} sx={{ 
-              background: 'transparent',
-              boxShadow: 'none',
-            }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Source</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortByRevenue(breakdown?.utm_source || {}).map(([source, data], index) => (
-                    <TableRow key={source} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                      <TableCell>
-                        <Chip 
-                          label={`#${index + 1}`}
-                          sx={{ 
-                            background: getGradient(index),
-                            color: 'white',
-                            fontWeight: 600,
-                            minWidth: 40,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{source}</TableCell>
-                      <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                        {formatCurrency(data.revenue)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
-                      <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                        {formatCurrency(data.commission)}
-                      </TableCell>
+            {breakdown?.utm_source && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Source</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(breakdown.utm_source).map(([source, data], index) => (
+                      <TableRow key={source} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                        <TableCell>
+                          <Chip 
+                            label={`#${index + 1}`} 
+                            size="small"
+                            sx={{ 
+                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                     'rgba(255, 255, 255, 0.1)',
+                              color: 'white',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                          {source}
+                        </TableCell>
+                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                          {data.sales}
+                        </TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                          {formatCurrency(data.revenue)}
+                        </TableCell>
+                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                          {formatCurrency(data.commission)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={1}>
-            <TableContainer component={Paper} sx={{ 
-              background: 'transparent',
-              boxShadow: 'none',
-            }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Medium</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortByRevenue(breakdown?.utm_medium || {}).map(([medium, data], index) => (
-                    <TableRow key={medium} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                      <TableCell>
-                        <Chip 
-                          label={`#${index + 1}`}
-                          sx={{ 
-                            background: getGradient(index),
-                            color: 'white',
-                            fontWeight: 600,
-                            minWidth: 40,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{medium}</TableCell>
-                      <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                        {formatCurrency(data.revenue)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
-                      <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                        {formatCurrency(data.commission)}
-                      </TableCell>
+            {breakdown?.utm_medium && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Medium</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(breakdown.utm_medium).map(([medium, data], index) => (
+                      <TableRow key={medium} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                        <TableCell>
+                          <Chip 
+                            label={`#${index + 1}`} 
+                            size="small"
+                            sx={{ 
+                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                     'rgba(255, 255, 255, 0.1)',
+                              color: 'white',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                          {medium}
+                        </TableCell>
+                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                          {data.sales}
+                        </TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                          {formatCurrency(data.revenue)}
+                        </TableCell>
+                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                          {formatCurrency(data.commission)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={2}>
-            <TableContainer component={Paper} sx={{ 
-              background: 'transparent',
-              boxShadow: 'none',
-            }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Campaign</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortByRevenue(breakdown?.utm_campaign || {}).map(([campaign, data], index) => (
-                    <TableRow key={campaign} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                      <TableCell>
-                        <Chip 
-                          label={`#${index + 1}`}
-                          sx={{ 
-                            background: getGradient(index),
-                            color: 'white',
-                            fontWeight: 600,
-                            minWidth: 40,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{campaign}</TableCell>
-                      <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                        {formatCurrency(data.revenue)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
-                      <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                        {formatCurrency(data.commission)}
-                      </TableCell>
+            {breakdown?.utm_campaign && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Campaign</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(breakdown.utm_campaign).map(([campaign, data], index) => (
+                      <TableRow key={campaign} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                        <TableCell>
+                          <Chip 
+                            label={`#${index + 1}`} 
+                            size="small"
+                            sx={{ 
+                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                     'rgba(255, 255, 255, 0.1)',
+                              color: 'white',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                          {campaign}
+                        </TableCell>
+                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                          {data.sales}
+                        </TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                          {formatCurrency(data.revenue)}
+                        </TableCell>
+                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                          {formatCurrency(data.commission)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
 
           <TabPanel value={tabValue} index={3}>
-            <TableContainer component={Paper} sx={{ 
-              background: 'transparent',
-              boxShadow: 'none',
-            }}>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                    <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {sortByRevenue(breakdown?.product || {}).map(([product, data], index) => (
-                    <TableRow key={product} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                      <TableCell>
-                        <Chip 
-                          label={`#${index + 1}`}
-                          sx={{ 
-                            background: getGradient(index),
-                            color: 'white',
-                            fontWeight: 600,
-                            minWidth: 40,
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>{product}</TableCell>
-                      <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                        {formatCurrency(data.revenue)}
-                      </TableCell>
-                      <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
-                      <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                        {formatCurrency(data.commission)}
-                      </TableCell>
+            {breakdown?.product && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {Object.entries(breakdown.product).map(([product, data], index) => (
+                      <TableRow key={product} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                        <TableCell>
+                          <Chip 
+                            label={`#${index + 1}`} 
+                            size="small"
+                            sx={{ 
+                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                     'rgba(255, 255, 255, 0.1)',
+                              color: 'white',
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                          {product}
+                        </TableCell>
+                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                          {data.sales}
+                        </TableCell>
+                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                          {formatCurrency(data.revenue)}
+                        </TableCell>
+                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                          {formatCurrency(data.commission)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
         </Card>
       </Box>

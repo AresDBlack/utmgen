@@ -15,11 +15,16 @@ import {
   Chip,
   Tooltip,
   InputAdornment,
+  Button,
+  Pagination,
+  Collapse,
 } from '@mui/material';
 
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import CheckIcon from '@mui/icons-material/Check';
 import SearchIcon from '@mui/icons-material/Search';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { motion, AnimatePresence } from 'framer-motion';
 import { googleSheetsService } from '../services/googleSheets';
 import type { UTMRecord, Client, Campaign, SourceType } from "../services/googleSheets";
@@ -41,12 +46,14 @@ interface FilterState {
 
 const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   const [links, setLinks] = useState<UTMRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState<Record<string, boolean>>({});
   const [clientsData, setClientsData] = useState<Client[]>([]);
   const [campaignsData, setCampaignsData] = useState<Campaign[]>([]);
   const [sourceTypesData, setSourceTypesData] = useState<SourceType[]>([]);
+  const [showLinks, setShowLinks] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<FilterState>({
     department: department,
     client: '',
@@ -56,6 +63,8 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     search: '',
   });
 
+  const ITEMS_PER_PAGE = 4;
+
   // Get unique values for filters
   const departments = Array.from(new Set(links.map(link => link.department).filter(Boolean))) as ('marketing' | 'sales' | 'social' | 'others')[];
   const uniqueClients = Array.from(new Set(links.map(link => link.client)));
@@ -63,25 +72,27 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   const uniqueSources = Array.from(new Set(links.map(link => link.source)));
   const uniqueSourceTypes = Array.from(new Set(links.map(link => link.sourceType)));
 
-  // Load all necessary data
+  // Load all necessary data only when showLinks is true
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [clients, campaigns, sourceTypes] = await Promise.all([
-          googleSheetsService.getClients(),
-          googleSheetsService.getCampaigns(),
-          googleSheetsService.getSourceTypes(),
-        ]);
-        setClientsData(clients);
-        setCampaignsData(campaigns);
-        setSourceTypesData(sourceTypes);
-      } catch (error) {
-        console.error('Error loading data:', error);
-      }
-    };
+    if (showLinks) {
+      const loadData = async () => {
+        try {
+          const [clients, campaigns, sourceTypes] = await Promise.all([
+            googleSheetsService.getClients(),
+            googleSheetsService.getCampaigns(),
+            googleSheetsService.getSourceTypes(),
+          ]);
+          setClientsData(clients);
+          setCampaignsData(campaigns);
+          setSourceTypesData(sourceTypes);
+        } catch (error) {
+          console.error('Error loading data:', error);
+        }
+      };
 
-    loadData();
-  }, []);
+      loadData();
+    }
+  }, [showLinks]);
 
   const loadLinks = async () => {
     try {
@@ -98,8 +109,10 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   };
 
   useEffect(() => {
-    loadLinks();
-  }, [reloadTrigger]);
+    if (showLinks) {
+      loadLinks();
+    }
+  }, [reloadTrigger, showLinks]);
 
   const copyToClipboard = (url: string) => {
     navigator.clipboard.writeText(url);
@@ -112,6 +125,18 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<string>) => {
     const { name, value } = e.target;
     setFilters(prev => ({ ...prev, [name]: value }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  const handleToggleLinks = () => {
+    setShowLinks(!showLinks);
+    if (!showLinks) {
+      setCurrentPage(1); // Reset to first page when showing links
+    }
+  };
+
+  const handlePageChange = (event: React.ChangeEvent<unknown>, value: number) => {
+    setCurrentPage(value);
   };
 
   // Filter links based on selected filters
@@ -135,6 +160,12 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     return true;
   });
 
+  // Pagination
+  const totalPages = Math.ceil(filteredLinks.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedLinks = filteredLinks.slice(startIndex, endIndex);
+
   // Helper function to get name from ID
   const getNameFromId = (id: string, type: 'client' | 'campaign' | 'sourceType'): string => {
     switch (type) {
@@ -149,273 +180,324 @@ const UTMLinkList = ({ department, reloadTrigger = 0 }: UTMLinkListProps) => {
     }
   };
 
-  if (loading) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography>Loading...</Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3 }}>
-        <Typography color="error">{error}</Typography>
-      </Box>
-    );
-  }
-
   return (
     <Box sx={{ p: 3 }}>
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
-        <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-          Generated UTM Links
-        </Typography>
-
-        {/* Filter Controls */}
-        <Paper 
-          sx={{ 
-            p: 3, 
-            mb: 3,
-            background: 'rgba(255, 255, 255, 0.05)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '16px',
+      {/* Toggle Button */}
+      <Box sx={{ mb: 3, textAlign: 'center' }}>
+        <Button
+          variant="outlined"
+          onClick={handleToggleLinks}
+          startIcon={showLinks ? <VisibilityOffIcon /> : <VisibilityIcon />}
+          sx={{
+            borderColor: 'rgba(255, 255, 255, 0.2)',
+            color: 'rgba(255, 255, 255, 0.8)',
+            '&:hover': {
+              borderColor: 'rgba(255, 255, 255, 0.4)',
+              backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            },
           }}
         >
-          <Box sx={{ 
-            display: 'grid',
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
-            gap: 2
-          }}>
-            <Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Department</InputLabel>
-                <Select
-                  name="department"
-                  value={filters.department}
-                  onChange={handleFilterChange}
-                  label="Department"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {departments.map(dept => (
-                    <MenuItem key={dept} value={dept}>
-                      {dept.charAt(0).toUpperCase() + dept.slice(1)}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
-            <Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Client</InputLabel>
-                <Select
-                  name="client"
-                  value={filters.client}
-                  onChange={handleFilterChange}
-                  label="Client"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {uniqueClients.map(clientId => {
-                    const client = clientsData.find(c => c.clientId === clientId);
-                    return (
-                      <MenuItem key={clientId} value={clientId}>
-                        {client?.name || clientId}
+          {showLinks ? 'Hide Generated UTM Links' : 'Show Generated UTM Links'}
+        </Button>
+      </Box>
+
+      {/* Collapsible Content */}
+      <Collapse in={showLinks}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            Generated UTM Links ({filteredLinks.length} total)
+          </Typography>
+
+          {/* Filter Controls */}
+          <Paper 
+            sx={{ 
+              p: 3, 
+              mb: 3,
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+            }}
+          >
+            <Box sx={{ 
+              display: 'grid',
+              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr' },
+              gap: 2
+            }}>
+              <Box>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    name="department"
+                    value={filters.department}
+                    onChange={handleFilterChange}
+                    label="Department"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {departments.map(dept => (
+                      <MenuItem key={dept} value={dept}>
+                        {dept.charAt(0).toUpperCase() + dept.slice(1)}
                       </MenuItem>
-                    );
-                  })}
-                </Select>
-              </FormControl>
-            </Box>
-            <Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Campaign</InputLabel>
-                <Select
-                  name="campaign"
-                  value={filters.campaign}
-                  onChange={handleFilterChange}
-                  label="Campaign"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {uniqueCampaigns.map(campaignId => {
-                    const campaign = campaignsData.find(c => c.campaignId === campaignId);
-                    return (
-                      <MenuItem key={campaignId} value={campaignId}>
-                        {campaign?.name || campaignId}
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Client</InputLabel>
+                  <Select
+                    name="client"
+                    value={filters.client}
+                    onChange={handleFilterChange}
+                    label="Client"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {uniqueClients.map(clientId => {
+                      const client = clientsData.find(c => c.clientId === clientId);
+                      return (
+                        <MenuItem key={clientId} value={clientId}>
+                          {client?.name || clientId}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Campaign</InputLabel>
+                  <Select
+                    name="campaign"
+                    value={filters.campaign}
+                    onChange={handleFilterChange}
+                    label="Campaign"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {uniqueCampaigns.map(campaignId => {
+                      const campaign = campaignsData.find(c => c.campaignId === campaignId);
+                      return (
+                        <MenuItem key={campaignId} value={campaignId}>
+                          {campaign?.name || campaignId}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Source Name</InputLabel>
+                  <Select
+                    name="source"
+                    value={filters.source}
+                    onChange={handleFilterChange}
+                    label="Source Name"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {uniqueSources.map(source => (
+                      <MenuItem key={source} value={source}>
+                        {source}
                       </MenuItem>
-                    );
-                  })}
-                </Select>
-              </FormControl>
-            </Box>
-            <Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Source Name</InputLabel>
-                <Select
-                  name="source"
-                  value={filters.source}
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Source Type</InputLabel>
+                  <Select
+                    name="sourceType"
+                    value={filters.sourceType}
+                    onChange={handleFilterChange}
+                    label="Source Type"
+                  >
+                    <MenuItem value="">All</MenuItem>
+                    {uniqueSourceTypes.map(sourceTypeId => {
+                      const sourceType = sourceTypesData.find(s => s.sourceTypeId === sourceTypeId);
+                      return (
+                        <MenuItem key={sourceTypeId} value={sourceTypeId}>
+                          {sourceType?.name || sourceTypeId}
+                        </MenuItem>
+                      );
+                    })}
+                  </Select>
+                </FormControl>
+              </Box>
+              <Box sx={{ gridColumn: { xs: '1 / -1', sm: '1 / -1', md: '1 / -1' } }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  name="search"
+                  label="Search"
+                  value={filters.search}
                   onChange={handleFilterChange}
-                  label="Source Name"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {uniqueSources.map(source => (
-                    <MenuItem key={source} value={source}>
-                      {source}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  placeholder="Search by URL, client, campaign, source, or source type"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon />
+                      </InputAdornment>
+                    ),
+                  }}
+                />
+              </Box>
             </Box>
-            <Box>
-              <FormControl fullWidth size="small">
-                <InputLabel>Source Type</InputLabel>
-                <Select
-                  name="sourceType"
-                  value={filters.sourceType}
-                  onChange={handleFilterChange}
-                  label="Source Type"
-                >
-                  <MenuItem value="">All</MenuItem>
-                  {uniqueSourceTypes.map(sourceTypeId => {
-                    const sourceType = sourceTypesData.find(s => s.sourceTypeId === sourceTypeId);
-                    return (
-                      <MenuItem key={sourceTypeId} value={sourceTypeId}>
-                        {sourceType?.name || sourceTypeId}
-                      </MenuItem>
-                    );
-                  })}
-                </Select>
-              </FormControl>
+          </Paper>
+
+          {loading && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography>Loading...</Typography>
             </Box>
-            <Box sx={{ gridColumn: { xs: '1 / -1', sm: '1 / -1', md: '1 / -1' } }}>
-              <TextField
-                fullWidth
-                size="small"
-                name="search"
-                label="Search"
-                value={filters.search}
-                onChange={handleFilterChange}
-                placeholder="Search by URL, client, campaign, source, or source type"
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
+          )}
+
+          {error && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="error">{error}</Typography>
+            </Box>
+          )}
+
+          {/* Links List */}
+          <AnimatePresence>
+            {paginatedLinks.map((link) => (
+              <motion.div
+                key={link.utmId}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card
+                  sx={{
+                    mb: 2,
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    transition: 'all 0.3s ease-in-out',
+                    '&:hover': {
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
+                    },
+                  }}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                      <Box>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
+                          {link.url}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                          <Chip 
+                            label={getNameFromId(link.client, 'client')} 
+                            size="small" 
+                            sx={{ 
+                              background: 'rgba(99, 102, 241, 0.1)',
+                              color: '#6366f1',
+                            }} 
+                          />
+                          <Chip 
+                            label={getNameFromId(link.campaign, 'campaign')} 
+                            size="small" 
+                            sx={{ 
+                              background: 'rgba(16, 185, 129, 0.1)',
+                              color: '#10b981',
+                            }} 
+                          />
+                          <Chip 
+                            label={getNameFromId(link.sourceType, 'sourceType')} 
+                            size="small" 
+                            sx={{ 
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              color: '#f59e0b',
+                            }} 
+                          />
+                          <Chip 
+                            label={link.department} 
+                            size="small" 
+                            sx={{ 
+                              background: 'rgba(236, 72, 153, 0.1)',
+                              color: '#ec4899',
+                            }} 
+                          />
+                        </Box>
+                      </Box>
+                      <Tooltip title={copied[link.utmUrl] ? "Copied!" : "Copy to clipboard"}>
+                        <IconButton
+                          onClick={() => copyToClipboard(link.utmUrl)}
+                          sx={{
+                            color: copied[link.utmUrl] ? '#10b981' : 'inherit',
+                            transition: 'all 0.2s ease-in-out',
+                          }}
+                        >
+                          {copied[link.utmUrl] ? <CheckIcon /> : <ContentCopyIcon />}
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: 'text.secondary',
+                        wordBreak: 'break-all',
+                        fontFamily: 'monospace',
+                        p: 1,
+                        borderRadius: '8px',
+                        background: 'rgba(0, 0, 0, 0.05)',
+                      }}
+                    >
+                      {link.utmUrl}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+
+          {filteredLinks.length === 0 && !loading && (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="text.secondary">
+                No links found matching the selected filters
+              </Typography>
+            </Box>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+              <Pagination
+                count={totalPages}
+                page={currentPage}
+                onChange={handlePageChange}
+                color="primary"
+                sx={{
+                  '& .MuiPaginationItem-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    '&.Mui-selected': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      color: '#fff',
+                    },
+                    '&:hover': {
+                      backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    },
+                  },
                 }}
               />
             </Box>
-          </Box>
-        </Paper>
+          )}
 
-        {/* Links List */}
-        <AnimatePresence>
-          {filteredLinks.map((link) => (
-            <motion.div
-              key={link.utmId}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Card
-                sx={{
-                  mb: 2,
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  backdropFilter: 'blur(10px)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  borderRadius: '16px',
-                  transition: 'all 0.3s ease-in-out',
-                  '&:hover': {
-                    transform: 'translateY(-2px)',
-                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.1)',
-                  },
-                }}
-              >
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>
-                        {link.url}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        <Chip 
-                          label={getNameFromId(link.client, 'client')} 
-                          size="small" 
-                          sx={{ 
-                            background: 'rgba(99, 102, 241, 0.1)',
-                            color: '#6366f1',
-                          }} 
-                        />
-                        <Chip 
-                          label={getNameFromId(link.campaign, 'campaign')} 
-                          size="small" 
-                          sx={{ 
-                            background: 'rgba(16, 185, 129, 0.1)',
-                            color: '#10b981',
-                          }} 
-                        />
-                        <Chip 
-                          label={getNameFromId(link.sourceType, 'sourceType')} 
-                          size="small" 
-                          sx={{ 
-                            background: 'rgba(245, 158, 11, 0.1)',
-                            color: '#f59e0b',
-                          }} 
-                        />
-                        <Chip 
-                          label={link.department} 
-                          size="small" 
-                          sx={{ 
-                            background: 'rgba(236, 72, 153, 0.1)',
-                            color: '#ec4899',
-                          }} 
-                        />
-                      </Box>
-                    </Box>
-                    <Tooltip title={copied[link.utmUrl] ? "Copied!" : "Copy to clipboard"}>
-                      <IconButton
-                        onClick={() => copyToClipboard(link.utmUrl)}
-                        sx={{
-                          color: copied[link.utmUrl] ? '#10b981' : 'inherit',
-                          transition: 'all 0.2s ease-in-out',
-                        }}
-                      >
-                        {copied[link.utmUrl] ? <CheckIcon /> : <ContentCopyIcon />}
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'text.secondary',
-                      wordBreak: 'break-all',
-                      fontFamily: 'monospace',
-                      p: 1,
-                      borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.05)',
-                    }}
-                  >
-                    {link.utmUrl}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-
-        {filteredLinks.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Typography color="text.secondary">
-              No links found matching the selected filters
-            </Typography>
-          </Box>
-        )}
-      </motion.div>
+          {/* Results Info */}
+          {filteredLinks.length > 0 && (
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                Showing {startIndex + 1}-{Math.min(endIndex, filteredLinks.length)} of {filteredLinks.length} links
+              </Typography>
+            </Box>
+          )}
+        </motion.div>
+      </Collapse>
     </Box>
   );
 };

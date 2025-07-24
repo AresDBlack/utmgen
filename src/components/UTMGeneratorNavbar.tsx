@@ -29,7 +29,7 @@ const UTMGeneratorNavbar = () => {
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
-      <Toolbar>
+      <Toolbar sx={{ maxWidth: '1200px', width: '100%', mx: 'auto' }}>
         <Typography 
           variant="h6" 
           component={Link} 

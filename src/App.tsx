@@ -5,6 +5,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import Navbar from './components/Navbar';
 import UTMGeneratorNavbar from './components/UTMGeneratorNavbar';
 import Home from './pages/Home';
+import UTMGeneratorHome from './pages/UTMGeneratorHome';
 import Marketing from './pages/Marketing';
 import Sales from './pages/Sales';
 import Social from './pages/Social';
@@ -250,7 +251,7 @@ const AppContent = () => {
             <Route path="/utm-generator" element={
               <>
                 <UTMGeneratorNavbar />
-                <Marketing />
+                <UTMGeneratorHome />
               </>
             } />
             <Route path="/sales" element={

@@ -19,6 +19,7 @@ import ExecAnalyticsApproval from './pages/ExecAnalyticsApproval';
 import ClientAnalyticsLeaderboards from './pages/ClientAnalyticsLeaderboards';
 import ClientAnalyticsTable from './pages/ClientAnalyticsTable';
 import ClientAnalyticsSummaries from './pages/ClientAnalyticsSummaries';
+import ClientAnalyticsSubscriptions from './pages/ClientAnalyticsSubscriptions';
 import { Box } from '@mui/material';
 
 const getTheme = (pathname: string) => {
@@ -296,6 +297,7 @@ const AppContent = () => {
             <Route path="/client-analytics-leaderboards" element={<ClientAnalyticsLeaderboards />} />
             <Route path="/client-analytics-table" element={<ClientAnalyticsTable />} />
             <Route path="/client-analytics-summaries" element={<ClientAnalyticsSummaries />} />
+            <Route path="/client-analytics-subscriptions" element={<ClientAnalyticsSubscriptions />} />
           </Routes>
         </Box>
       </Box>

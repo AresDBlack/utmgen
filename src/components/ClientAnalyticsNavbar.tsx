@@ -12,7 +12,7 @@ import {
   useTheme
 } from '@mui/material';
 import { Link, useLocation } from 'react-router-dom';
-import { BarChart, TableChart, Assessment } from '@mui/icons-material';
+import { BarChart, TableChart, Assessment, CreditCard } from '@mui/icons-material';
 
 interface ClientAnalyticsNavbarProps {
   selectedClient: string;
@@ -30,6 +30,7 @@ const ClientAnalyticsNavbar: React.FC<ClientAnalyticsNavbarProps> = ({
     { path: '/client-analytics-leaderboards', label: 'Leaderboards', icon: <BarChart /> },
     { path: '/client-analytics-table', label: 'Table View', icon: <TableChart /> },
     { path: '/client-analytics-summaries', label: 'Summaries', icon: <Assessment /> },
+    { path: '/client-analytics-subscriptions', label: 'Subscriptions', icon: <CreditCard /> },
   ];
 
   const getGradient = () => {

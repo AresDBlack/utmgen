@@ -103,6 +103,45 @@ export interface ClientAnalyticsBreakdown {
   product: { [key: string]: { revenue: number; sales: number; commission: number } };
 }
 
+export interface SubscriptionRecord {
+  customerName: string;
+  email: string;
+  phone: string;
+  product: string;
+  subscriptionId: string;
+  status: 'active' | 'cancelled' | 'paused' | 'expired';
+  startDate: string;
+  nextBillingDate: string;
+  billingCycle: 'monthly' | 'quarterly' | 'yearly';
+  amount: number;
+  currency: string;
+  paymentMethod: string;
+  lastPaymentDate: string;
+  nextPaymentAmount: number;
+  totalPayments: number;
+  client: 'Danny' | 'Nadine' | 'Shaun';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SubscriptionSummary {
+  totalSubscriptions: number;
+  activeSubscriptions: number;
+  cancelledSubscriptions: number;
+  pausedSubscriptions: number;
+  expiredSubscriptions: number;
+  monthlyRevenue: number;
+  quarterlyRevenue: number;
+  yearlyRevenue: number;
+  totalRevenue: number;
+  averageSubscriptionValue: number;
+  churnRate: number;
+  renewalRate: number;
+  uniqueProducts: number;
+  uniqueCustomers: number;
+}
+
 // Utility: Calculate due dates for a given year
 export function getDueDates(year: number): string[] {
   const departments = [
@@ -867,6 +906,108 @@ class GoogleSheetsService {
     return breakdown;
   }
 
+  async getClientSubscriptions(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<SubscriptionRecord[]> {
+    const clients = client ? [client] : ['Danny', 'Nadine', 'Shaun'];
+    const allSubscriptions: SubscriptionRecord[] = [];
+
+    for (const clientName of clients) {
+      try {
+        const sheetName = `${clientName} Active Subscriptions`;
+        const data = await this.fetchSheet(`${sheetName}!A:O`);
+        const subscriptions: SubscriptionRecord[] = data.slice(1).map(row => ({
+          customerName: row[0] || '',
+          email: row[1] || '',
+          phone: row[2] || '',
+          product: row[3] || '',
+          subscriptionId: row[4] || '',
+          status: (row[5] || 'active') as 'active' | 'cancelled' | 'paused' | 'expired',
+          startDate: row[6] || '',
+          nextBillingDate: row[7] || '',
+          billingCycle: (row[8] || 'monthly') as 'monthly' | 'quarterly' | 'yearly',
+          amount: parseFloat(row[9] || '0') || 0,
+          currency: row[10] || 'USD',
+          paymentMethod: row[11] || '',
+          lastPaymentDate: row[12] || '',
+          nextPaymentAmount: parseFloat(row[13] || '0') || 0,
+          totalPayments: parseInt(row[14] || '0') || 0,
+          client: clientName as 'Danny' | 'Nadine' | 'Shaun',
+          notes: row[15] || '',
+          createdAt: row[16] || new Date().toISOString(),
+          updatedAt: row[17] || new Date().toISOString(),
+        }));
+
+        // Filter by date range if provided
+        const filteredSubscriptions = subscriptions.filter(subscription => {
+          if (!startDate && !endDate) return true;
+          
+          const subscriptionDate = new Date(subscription.startDate);
+          const start = startDate ? new Date(startDate) : null;
+          const end = endDate ? new Date(endDate) : null;
+          
+          if (start && subscriptionDate < start) return false;
+          if (end && subscriptionDate > end) return false;
+          
+          return true;
+        });
+
+        allSubscriptions.push(...filteredSubscriptions);
+      } catch (error) {
+        console.error(`Error fetching ${clientName} subscriptions:`, error);
+      }
+    }
+
+    return allSubscriptions;
+  }
+
+  async getClientSubscriptionSummary(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<SubscriptionSummary> {
+    const subscriptions = await this.getClientSubscriptions(client, startDate, endDate);
+    
+    const totalSubscriptions = subscriptions.length;
+    const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
+    const cancelledSubscriptions = subscriptions.filter(s => s.status === 'cancelled').length;
+    const pausedSubscriptions = subscriptions.filter(s => s.status === 'paused').length;
+    const expiredSubscriptions = subscriptions.filter(s => s.status === 'expired').length;
+    
+    const monthlyRevenue = subscriptions
+      .filter(s => s.billingCycle === 'monthly' && s.status === 'active')
+      .reduce((sum, s) => sum + s.amount, 0);
+    
+    const quarterlyRevenue = subscriptions
+      .filter(s => s.billingCycle === 'quarterly' && s.status === 'active')
+      .reduce((sum, s) => sum + s.amount, 0);
+    
+    const yearlyRevenue = subscriptions
+      .filter(s => s.billingCycle === 'yearly' && s.status === 'active')
+      .reduce((sum, s) => sum + s.amount, 0);
+    
+    const totalRevenue = monthlyRevenue + quarterlyRevenue + yearlyRevenue;
+    const averageSubscriptionValue = totalSubscriptions > 0 ? totalRevenue / totalSubscriptions : 0;
+    
+    const uniqueProducts = new Set(subscriptions.map(s => s.product)).size;
+    const uniqueCustomers = new Set(subscriptions.map(s => s.email)).size;
+    
+    // Calculate churn rate (simplified - could be more sophisticated)
+    const churnRate = totalSubscriptions > 0 ? (cancelledSubscriptions + expiredSubscriptions) / totalSubscriptions : 0;
+    const renewalRate = totalSubscriptions > 0 ? activeSubscriptions / totalSubscriptions : 0;
+
+    return {
+      totalSubscriptions,
+      activeSubscriptions,
+      cancelledSubscriptions,
+      pausedSubscriptions,
+      expiredSubscriptions,
+      monthlyRevenue,
+      quarterlyRevenue,
+      yearlyRevenue,
+      totalRevenue,
+      averageSubscriptionValue,
+      churnRate,
+      renewalRate,
+      uniqueProducts,
+      uniqueCustomers,
+    };
+  }
+
   // Rename existing methods to _add* to avoid infinite recursion
   private async _addClient(client: Omit<Client, 'clientId'>): Promise<Client> {
     const token = await this.getAccessToken();
@@ -1059,3 +1200,9 @@ export const getClientAnalyticsSummary = (client?: 'Danny' | 'Nadine' | 'Shaun',
 
 export const getClientAnalyticsBreakdown = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
   googleSheetsService.getClientAnalyticsBreakdown(client, startDate, endDate);
+
+export const getClientSubscriptions = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
+  googleSheetsService.getClientSubscriptions(client, startDate, endDate);
+
+export const getClientSubscriptionSummary = (client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string) => 
+  googleSheetsService.getClientSubscriptionSummary(client, startDate, endDate);

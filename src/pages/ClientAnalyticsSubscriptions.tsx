@@ -30,7 +30,8 @@ import {
   Snackbar,
   Badge,
   Tabs,
-  Tab
+  Tab,
+  TablePagination
 } from '@mui/material';
 import { 
   getClientSubscriptions, 
@@ -79,6 +80,10 @@ const ClientAnalyticsSubscriptions = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState<'success' | 'error'>('success');
+  
+  // Pagination states
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -255,6 +260,20 @@ const ClientAnalyticsSubscriptions = () => {
     setDialogOpen(false);
     setEditingSubscription(null);
   };
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [productFilter, statusFilter, billingCycleFilter, searchTerm, tabValue]);
 
   if (loading) {
     return (
@@ -507,6 +526,7 @@ const ClientAnalyticsSubscriptions = () => {
                       if (tabValue === 4) return subscription.status === 'expired';
                       return true;
                     })
+                    .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                     .map((subscription) => (
                     <TableRow key={subscription.subscriptionId} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
                       <TableCell>
@@ -572,6 +592,45 @@ const ClientAnalyticsSubscriptions = () => {
                 </TableBody>
               </Table>
             </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25, 50]}
+              component="div"
+              count={filteredSubscriptions.filter(subscription => {
+                if (tabValue === 0) return true; // All
+                if (tabValue === 1) return subscription.status === 'active';
+                if (tabValue === 2) return subscription.status === 'cancelled';
+                if (tabValue === 3) return subscription.status === 'paused';
+                if (tabValue === 4) return subscription.status === 'expired';
+                return true;
+              }).length}
+              rowsPerPage={rowsPerPage}
+              page={page}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              sx={{
+                color: '#94a3b8',
+                '& .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+                  color: '#94a3b8',
+                },
+                '& .MuiTablePagination-select': {
+                  color: '#f8fafc',
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                },
+                '& .MuiTablePagination-actions': {
+                  '& .MuiIconButton-root': {
+                    color: '#94a3b8',
+                    '&:hover': {
+                      color: '#f8fafc',
+                    },
+                    '&.Mui-disabled': {
+                      color: 'rgba(148, 163, 184, 0.3)',
+                    },
+                  },
+                },
+              }}
+            />
           </CardContent>
         </Card>
       </Box>

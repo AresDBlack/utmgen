@@ -138,7 +138,28 @@ const ClientAnalyticsSubscriptions = () => {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString();
+    if (!dateString) return 'N/A';
+    try {
+      // Handle different date formats
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        // Try parsing as "MMM DD, YYYY" format
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const parts = dateString.split(' ');
+        if (parts.length === 3) {
+          const monthIndex = months.indexOf(parts[0] || '');
+          const day = parseInt((parts[1] || '').replace(',', ''));
+          const year = parseInt(parts[2] || '');
+          if (monthIndex !== -1 && !isNaN(day) && !isNaN(year)) {
+            return new Date(year, monthIndex, day).toLocaleDateString();
+          }
+        }
+        return dateString; // Return original if can't parse
+      }
+      return date.toLocaleDateString();
+    } catch (error) {
+      return dateString; // Return original if error
+    }
   };
 
   const formatPercentage = (value: number) => {

@@ -913,27 +913,27 @@ class GoogleSheetsService {
     for (const clientName of clients) {
       try {
         const sheetName = `${clientName} Active Subscriptions`;
-        const data = await this.fetchSheet(`${sheetName}!A:O`);
+        const data = await this.fetchSheet(`${sheetName}!A:L`);
         const subscriptions: SubscriptionRecord[] = data.slice(1).map(row => ({
           customerName: row[0] || '',
           email: row[1] || '',
           phone: row[2] || '',
-          product: row[3] || '',
-          subscriptionId: row[4] || '',
-          status: (row[5] || 'active') as 'active' | 'cancelled' | 'paused' | 'expired',
-          startDate: row[6] || '',
-          nextBillingDate: row[7] || '',
-          billingCycle: (row[8] || 'monthly') as 'monthly' | 'quarterly' | 'yearly',
-          amount: parseFloat(row[9] || '0') || 0,
-          currency: row[10] || 'USD',
-          paymentMethod: row[11] || '',
-          lastPaymentDate: row[12] || '',
-          nextPaymentAmount: parseFloat(row[13] || '0') || 0,
-          totalPayments: parseInt(row[14] || '0') || 0,
+          product: row[11] || '', // Line item Name
+          subscriptionId: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Generate unique ID
+          status: (row[9] || 'active') as 'active' | 'cancelled' | 'paused' | 'expired',
+          startDate: row[3] || '', // Subscription Start
+          nextBillingDate: row[4] || '', // Subscription End (or calculate from start date)
+          billingCycle: this.determineBillingCycle(row[11] || ''), // Determine from product name
+          amount: parseFloat(row[8] || '0') || 0, // Total Amount
+          currency: 'USD',
+          paymentMethod: 'Credit Card', // Default since not in data
+          lastPaymentDate: row[10] || '', // Transaction date
+          nextPaymentAmount: parseFloat(row[8] || '0') || 0, // Same as amount for now
+          totalPayments: 1, // Default since not tracked in data
           client: clientName as 'Danny' | 'Nadine' | 'Shaun',
-          notes: row[15] || '',
-          createdAt: row[16] || new Date().toISOString(),
-          updatedAt: row[17] || new Date().toISOString(),
+          notes: `Trial: ${row[5] || 0} days, Trial Start: ${row[6] || 'N/A'}, Trial End: ${row[7] || 'N/A'}`,
+          createdAt: row[10] || new Date().toISOString(), // Transaction date as creation date
+          updatedAt: new Date().toISOString(),
         }));
 
         // Filter by date range if provided
@@ -957,6 +957,14 @@ class GoogleSheetsService {
     }
 
     return allSubscriptions;
+  }
+
+  private determineBillingCycle(productName: string): 'monthly' | 'quarterly' | 'yearly' {
+    const name = productName.toLowerCase();
+    if (name.includes('monthly') || name.includes('mo')) return 'monthly';
+    if (name.includes('quarterly') || name.includes('quarter')) return 'quarterly';
+    if (name.includes('yearly') || name.includes('annual')) return 'yearly';
+    return 'monthly'; // Default to monthly
   }
 
   async getClientSubscriptionSummary(client?: 'Danny' | 'Nadine' | 'Shaun', startDate?: string, endDate?: string): Promise<SubscriptionSummary> {

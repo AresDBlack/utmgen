@@ -23,12 +23,27 @@ import {
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
 import ClientAnalyticsFilter from '../components/ClientAnalyticsFilter';
+import ClientAnalyticsComparisonFilter from '../components/ClientAnalyticsComparisonFilter';
+import ClientAnalyticsComparisonChart from '../components/ClientAnalyticsComparisonChart';
 import { useSearchParams } from 'react-router-dom';
 
 interface TabPanelProps {
   children?: React.ReactNode;
   index: number;
   value: number;
+}
+
+interface FilterSet {
+  name: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  selectedClient: string;
+  productFilter: string;
+  campaignFilter: string;
+  sourceFilter: string;
+  mediumFilter: string;
+  searchTerm: string;
+  isVisible: boolean;
 }
 
 function TabPanel(props: TabPanelProps) {
@@ -64,6 +79,34 @@ const ClientAnalyticsLeaderboards = () => {
   const [mediumFilter, setMediumFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  
+  // Comparison mode states
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [filterSetA, setFilterSetA] = useState<FilterSet>({
+    name: 'Filter Set A',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [filterSetB, setFilterSetB] = useState<FilterSet>({
+    name: 'Filter Set B',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -125,6 +168,44 @@ const ClientAnalyticsLeaderboards = () => {
   const availableSources: string[] = [];
   const availableMediums: string[] = [];
 
+  // Comparison data calculation (placeholder)
+  const getComparisonData = () => {
+    if (!breakdown) return [];
+
+    // Calculate totals from breakdown data
+    const totalSales = Object.values(breakdown.utm_source || {}).reduce((sum, data) => sum + data.sales, 0);
+    const totalRevenue = Object.values(breakdown.utm_source || {}).reduce((sum, data) => sum + data.revenue, 0);
+    const totalCommission = Object.values(breakdown.utm_source || {}).reduce((sum, data) => sum + data.commission, 0);
+    const uniqueSources = Object.keys(breakdown.utm_source || {}).length;
+
+    return [
+      {
+        label: 'Total Sales',
+        valueA: totalSales,
+        valueB: totalSales, // Placeholder - would be calculated from filter set B data
+        format: 'number' as const,
+      },
+      {
+        label: 'Total Revenue',
+        valueA: totalRevenue,
+        valueB: totalRevenue, // Placeholder - would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Total Commission',
+        valueA: totalCommission,
+        valueB: totalCommission, // Placeholder - would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Unique Sources',
+        valueA: uniqueSources,
+        valueB: uniqueSources, // Placeholder - would be calculated from filter set B data
+        format: 'number' as const,
+      },
+    ];
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -175,266 +256,299 @@ const ClientAnalyticsLeaderboards = () => {
           </Typography>
         </Box>
 
-        {/* Advanced Filter Component */}
-        <ClientAnalyticsFilter
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={handleStartDateChange}
-          onEndDateChange={handleEndDateChange}
-          selectedClient={selectedClient}
-          onClientChange={handleClientChange}
-          productFilter={productFilter}
-          onProductFilterChange={setProductFilter}
-          campaignFilter={campaignFilter}
-          onCampaignFilterChange={setCampaignFilter}
-          sourceFilter={sourceFilter}
-          onSourceFilterChange={setSourceFilter}
-          mediumFilter={mediumFilter}
-          onMediumFilterChange={setMediumFilter}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          onClearAll={handleClearAllFilters}
+        {/* Comparison Filter Component */}
+        <ClientAnalyticsComparisonFilter
+          isComparisonMode={isComparisonMode}
+          onComparisonModeChange={setIsComparisonMode}
+          filterSetA={filterSetA}
+          filterSetB={filterSetB}
+          onFilterSetAChange={setFilterSetA}
+          onFilterSetBChange={setFilterSetB}
           availableProducts={availableProducts}
           availableCampaigns={availableCampaigns}
           availableSources={availableSources}
           availableMediums={availableMediums}
-          isExpanded={isFilterExpanded}
-          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          isExpanded={isComparisonExpanded}
+          onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
         />
 
-        <Card sx={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: '16px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-        }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
-            <Tabs 
-              value={tabValue} 
-              onChange={handleTabChange}
-              sx={{
-                '& .MuiTab-root': {
-                  color: '#94a3b8',
-                  textTransform: 'none',
-                  fontWeight: 500,
-                  fontSize: 16,
-                },
-                '& .Mui-selected': {
-                  color: '#f8fafc',
-                },
-                '& .MuiTabs-indicator': {
-                  backgroundColor: '#06b6d4',
-                },
-              }}
-            >
-              <Tab label="UTM Source" />
-              <Tab label="UTM Medium" />
-              <Tab label="UTM Campaign" />
-              <Tab label="Product" />
-            </Tabs>
-          </Box>
+        {/* Regular Filter Component (when not in comparison mode) */}
+        {!isComparisonMode && (
+          <ClientAnalyticsFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={handleEndDateChange}
+            selectedClient={selectedClient}
+            onClientChange={handleClientChange}
+            productFilter={productFilter}
+            onProductFilterChange={setProductFilter}
+            campaignFilter={campaignFilter}
+            onCampaignFilterChange={setCampaignFilter}
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            mediumFilter={mediumFilter}
+            onMediumFilterChange={setMediumFilter}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onClearAll={handleClearAllFilters}
+            availableProducts={availableProducts}
+            availableCampaigns={availableCampaigns}
+            availableSources={availableSources}
+            availableMediums={availableMediums}
+            isExpanded={isFilterExpanded}
+            onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          />
+        )}
 
-          <TabPanel value={tabValue} index={0}>
-            {breakdown?.utm_source && (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Source</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(breakdown.utm_source).map(([source, data], index) => (
-                      <TableRow key={source} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                        <TableCell>
-                          <Chip 
-                            label={`#${index + 1}`} 
-                            size="small"
-                            sx={{ 
-                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                     'rgba(255, 255, 255, 0.1)',
-                              color: 'white',
-                              fontWeight: 600,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                          {source}
-                        </TableCell>
-                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                          {data.sales}
-                        </TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                          {formatCurrency(data.revenue)}
-                        </TableCell>
-                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
-                          {formatCurrency(data.commission)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </TabPanel>
+        {/* Comparison Charts */}
+        {isComparisonMode && (
+          <ClientAnalyticsComparisonChart
+            title="Performance Comparison"
+            data={getComparisonData()}
+            filterSetAName="Filter Set A"
+            filterSetBName="Filter Set B"
+            isExpanded={isComparisonExpanded}
+            onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
+          />
+        )}
 
-          <TabPanel value={tabValue} index={1}>
-            {breakdown?.utm_medium && (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Medium</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(breakdown.utm_medium).map(([medium, data], index) => (
-                      <TableRow key={medium} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                        <TableCell>
-                          <Chip 
-                            label={`#${index + 1}`} 
-                            size="small"
-                            sx={{ 
-                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                     'rgba(255, 255, 255, 0.1)',
-                              color: 'white',
-                              fontWeight: 600,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                          {medium}
-                        </TableCell>
-                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                          {data.sales}
-                        </TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                          {formatCurrency(data.revenue)}
-                        </TableCell>
-                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
-                          {formatCurrency(data.commission)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </TabPanel>
+        {/* Leaderboards Card (only when not in comparison mode) */}
+        {!isComparisonMode && (
+          <Card sx={{
+            background: 'rgba(255, 255, 255, 0.05)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+          }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+              <Tabs 
+                value={tabValue} 
+                onChange={handleTabChange}
+                sx={{
+                  '& .MuiTab-root': {
+                    color: '#94a3b8',
+                    textTransform: 'none',
+                    fontWeight: 500,
+                    fontSize: 16,
+                  },
+                  '& .Mui-selected': {
+                    color: '#f8fafc',
+                  },
+                  '& .MuiTabs-indicator': {
+                    backgroundColor: '#06b6d4',
+                  },
+                }}
+              >
+                <Tab label="UTM Source" />
+                <Tab label="UTM Medium" />
+                <Tab label="UTM Campaign" />
+                <Tab label="Product" />
+              </Tabs>
+            </Box>
 
-          <TabPanel value={tabValue} index={2}>
-            {breakdown?.utm_campaign && (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Campaign</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(breakdown.utm_campaign).map(([campaign, data], index) => (
-                      <TableRow key={campaign} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                        <TableCell>
-                          <Chip 
-                            label={`#${index + 1}`} 
-                            size="small"
-                            sx={{ 
-                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                     'rgba(255, 255, 255, 0.1)',
-                              color: 'white',
-                              fontWeight: 600,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                          {campaign}
-                        </TableCell>
-                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                          {data.sales}
-                        </TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                          {formatCurrency(data.revenue)}
-                        </TableCell>
-                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
-                          {formatCurrency(data.commission)}
-                        </TableCell>
+            <TabPanel value={tabValue} index={0}>
+              {breakdown?.utm_source && (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Source</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </TabPanel>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(breakdown.utm_source).map(([source, data], index) => (
+                        <TableRow key={source} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                          <TableCell>
+                            <Chip 
+                              label={`#${index + 1}`} 
+                              size="small"
+                              sx={{ 
+                                background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                       index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                       index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                       'rgba(255, 255, 255, 0.1)',
+                                color: 'white',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                            {source}
+                          </TableCell>
+                          <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                            {data.sales}
+                          </TableCell>
+                          <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                            {formatCurrency(data.revenue)}
+                          </TableCell>
+                          <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                            {formatCurrency(data.commission)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </TabPanel>
 
-          <TabPanel value={tabValue} index={3}>
-            {breakdown?.product && (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                      <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {Object.entries(breakdown.product).map(([product, data], index) => (
-                      <TableRow key={product} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                        <TableCell>
-                          <Chip 
-                            label={`#${index + 1}`} 
-                            size="small"
-                            sx={{ 
-                              background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                     index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                     index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                     'rgba(255, 255, 255, 0.1)',
-                              color: 'white',
-                              fontWeight: 600,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                          {product}
-                        </TableCell>
-                        <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
-                          {data.sales}
-                        </TableCell>
-                        <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                          {formatCurrency(data.revenue)}
-                        </TableCell>
-                        <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
-                          {formatCurrency(data.commission)}
-                        </TableCell>
+            <TabPanel value={tabValue} index={1}>
+              {breakdown?.utm_medium && (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Medium</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </TabPanel>
-        </Card>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(breakdown.utm_medium).map(([medium, data], index) => (
+                        <TableRow key={medium} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                          <TableCell>
+                            <Chip 
+                              label={`#${index + 1}`} 
+                              size="small"
+                              sx={{ 
+                                background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                       index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                       index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                       'rgba(255, 255, 255, 0.1)',
+                                color: 'white',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                            {medium}
+                          </TableCell>
+                          <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                            {data.sales}
+                          </TableCell>
+                          <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                            {formatCurrency(data.revenue)}
+                          </TableCell>
+                          <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                            {formatCurrency(data.commission)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={2}>
+              {breakdown?.utm_campaign && (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>UTM Campaign</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(breakdown.utm_campaign).map(([campaign, data], index) => (
+                        <TableRow key={campaign} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                          <TableCell>
+                            <Chip 
+                              label={`#${index + 1}`} 
+                              size="small"
+                              sx={{ 
+                                background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                       index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                       index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                       'rgba(255, 255, 255, 0.1)',
+                                color: 'white',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                            {campaign}
+                          </TableCell>
+                          <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                            {data.sales}
+                          </TableCell>
+                          <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                            {formatCurrency(data.revenue)}
+                          </TableCell>
+                          <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                            {formatCurrency(data.commission)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </TabPanel>
+
+            <TabPanel value={tabValue} index={3}>
+              {breakdown?.product && (
+                <TableContainer>
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {Object.entries(breakdown.product).map(([product, data], index) => (
+                        <TableRow key={product} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
+                          <TableCell>
+                            <Chip 
+                              label={`#${index + 1}`} 
+                              size="small"
+                              sx={{ 
+                                background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
+                                       index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
+                                       index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
+                                       'rgba(255, 255, 255, 0.1)',
+                                color: 'white',
+                                fontWeight: 600,
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
+                            {product}
+                          </TableCell>
+                          <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                            {data.sales}
+                          </TableCell>
+                          <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                            {formatCurrency(data.revenue)}
+                          </TableCell>
+                          <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
+                            {formatCurrency(data.commission)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </TabPanel>
+          </Card>
+        )}
       </Box>
     </Box>
   );

@@ -23,7 +23,22 @@ import {
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
 import ClientAnalyticsFilter from '../components/ClientAnalyticsFilter';
+import ClientAnalyticsComparisonFilter from '../components/ClientAnalyticsComparisonFilter';
+import ClientAnalyticsComparisonChart from '../components/ClientAnalyticsComparisonChart';
 import { useSearchParams } from 'react-router-dom';
+
+interface FilterSet {
+  name: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  selectedClient: string;
+  productFilter: string;
+  campaignFilter: string;
+  sourceFilter: string;
+  mediumFilter: string;
+  searchTerm: string;
+  isVisible: boolean;
+}
 
 const ClientAnalyticsSummaries = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,12 +47,42 @@ const ClientAnalyticsSummaries = () => {
   const [loading, setLoading] = useState(true);
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
+  
+  // Filter states
   const [productFilter, setProductFilter] = useState('');
   const [campaignFilter, setCampaignFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [mediumFilter, setMediumFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  
+  // Comparison mode states
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [filterSetA, setFilterSetA] = useState<FilterSet>({
+    name: 'Filter Set A',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [filterSetB, setFilterSetB] = useState<FilterSet>({
+    name: 'Filter Set B',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -83,7 +128,7 @@ const ClientAnalyticsSummaries = () => {
 
   useEffect(() => {
     fetchData();
-  }, [selectedClient, startDate, endDate]);
+  }, [selectedClient, startDate, endDate, productFilter, campaignFilter, sourceFilter, mediumFilter, searchTerm]);
 
   const handleClientChange = (client: string) => {
     setSearchParams({ client });
@@ -97,6 +142,11 @@ const ClientAnalyticsSummaries = () => {
     setEndDate(date);
   };
 
+  const handleClearFilter = () => {
+    setStartDate(null);
+    setEndDate(null);
+  };
+
   const handleClearAllFilters = () => {
     setStartDate(null);
     setEndDate(null);
@@ -105,6 +155,70 @@ const ClientAnalyticsSummaries = () => {
     setSourceFilter('');
     setMediumFilter('');
     setSearchTerm('');
+  };
+
+  // Filter breakdowns data based on current filters
+  const getFilteredBreakdowns = () => {
+    const filteredBreakdowns: { [key: string]: ClientAnalyticsBreakdown } = {};
+    
+    Object.entries(breakdowns).forEach(([client, breakdown]) => {
+      if (!breakdown) return;
+      
+      // Create a filtered copy of the breakdown
+      const filteredBreakdown: ClientAnalyticsBreakdown = {
+        utm_source: {},
+        utm_medium: {},
+        utm_campaign: {},
+        utm_content: {},
+        product: {}
+      };
+      
+      // Filter utm_source
+      if (breakdown.utm_source) {
+        Object.entries(breakdown.utm_source).forEach(([source, data]) => {
+          if (!sourceFilter || source.toLowerCase().includes(sourceFilter.toLowerCase())) {
+            filteredBreakdown.utm_source[source] = data;
+          }
+        });
+      }
+      
+      // Filter utm_medium
+      if (breakdown.utm_medium) {
+        Object.entries(breakdown.utm_medium).forEach(([medium, data]) => {
+          if (!mediumFilter || medium.toLowerCase().includes(mediumFilter.toLowerCase())) {
+            filteredBreakdown.utm_medium[medium] = data;
+          }
+        });
+      }
+      
+      // Filter utm_campaign
+      if (breakdown.utm_campaign) {
+        Object.entries(breakdown.utm_campaign).forEach(([campaign, data]) => {
+          if (!campaignFilter || campaign.toLowerCase().includes(campaignFilter.toLowerCase())) {
+            filteredBreakdown.utm_campaign[campaign] = data;
+          }
+        });
+      }
+      
+      // Filter product
+      if (breakdown.product) {
+        Object.entries(breakdown.product).forEach(([product, data]) => {
+          if (!productFilter || product.toLowerCase().includes(productFilter.toLowerCase())) {
+            filteredBreakdown.product[product] = data;
+          }
+        });
+      }
+      
+      // Only include if there's any data after filtering
+      if (Object.keys(filteredBreakdown.utm_source).length > 0 || 
+          Object.keys(filteredBreakdown.utm_medium).length > 0 || 
+          Object.keys(filteredBreakdown.utm_campaign).length > 0 || 
+          Object.keys(filteredBreakdown.product).length > 0) {
+        filteredBreakdowns[client] = filteredBreakdown;
+      }
+    });
+    
+    return filteredBreakdowns;
   };
 
   const formatCurrency = (amount: number) => {
@@ -133,11 +247,68 @@ const ClientAnalyticsSummaries = () => {
       .slice(0, 5); // Top 5
   };
 
-  // Get unique values for filter options (placeholder for now)
-  const availableProducts: string[] = [];
-  const availableCampaigns: string[] = [];
-  const availableSources: string[] = [];
-  const availableMediums: string[] = [];
+  // Get unique values for filter options from breakdowns data
+  const availableProducts = Array.from(new Set(
+    Object.values(getFilteredBreakdowns()).flatMap(breakdown => 
+      breakdown?.product ? Object.keys(breakdown.product) : []
+    )
+  )).filter(Boolean);
+  
+  const availableCampaigns = Array.from(new Set(
+    Object.values(getFilteredBreakdowns()).flatMap(breakdown => 
+      breakdown?.utm_campaign ? Object.keys(breakdown.utm_campaign) : []
+    )
+  )).filter(Boolean);
+  
+  const availableSources = Array.from(new Set(
+    Object.values(getFilteredBreakdowns()).flatMap(breakdown => 
+      breakdown?.utm_source ? Object.keys(breakdown.utm_source) : []
+    )
+  )).filter(Boolean);
+  
+  const availableMediums = Array.from(new Set(
+    Object.values(getFilteredBreakdowns()).flatMap(breakdown => 
+      breakdown?.utm_medium ? Object.keys(breakdown.utm_medium) : []
+    )
+  )).filter(Boolean);
+
+  // Comparison data calculation (placeholder)
+  const getComparisonData = () => {
+    if (Object.keys(summaries).length === 0) return [];
+
+    // Calculate totals from summaries data
+    const totalSales = Object.values(summaries).reduce((sum, summary) => sum + summary.totalSales, 0);
+    const totalRevenue = Object.values(summaries).reduce((sum, summary) => sum + summary.totalRevenue, 0);
+    const totalCommission = Object.values(summaries).reduce((sum, summary) => sum + summary.totalCommission, 0);
+    const uniqueCampaigns = Object.values(summaries).reduce((sum, summary) => sum + summary.uniqueCampaigns, 0);
+
+    return [
+      {
+        label: 'Total Sales',
+        valueA: totalSales,
+        valueB: totalSales, // Placeholder - would be calculated from filter set B data
+        format: 'number' as const,
+      },
+      {
+        label: 'Total Revenue',
+        valueA: totalRevenue,
+        valueB: totalRevenue, // Placeholder - would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Total Commission',
+        valueA: totalCommission,
+        valueB: totalCommission, // Placeholder - would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Unique Campaigns',
+        valueA: uniqueCampaigns,
+        valueB: uniqueCampaigns, // Placeholder - would be calculated from filter set B data
+        format: 'number' as const,
+      },
+    ];
+  };
 
   if (loading) {
     return (
@@ -191,59 +362,167 @@ const ClientAnalyticsSummaries = () => {
           </Typography>
         </Box>
 
-        {/* Advanced Filter Component */}
-        <ClientAnalyticsFilter
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={handleStartDateChange}
-          onEndDateChange={handleEndDateChange}
-          selectedClient={selectedClient}
-          onClientChange={handleClientChange}
-          productFilter={productFilter}
-          onProductFilterChange={setProductFilter}
-          campaignFilter={campaignFilter}
-          onCampaignFilterChange={setCampaignFilter}
-          sourceFilter={sourceFilter}
-          onSourceFilterChange={setSourceFilter}
-          mediumFilter={mediumFilter}
-          onMediumFilterChange={setMediumFilter}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          onClearAll={handleClearAllFilters}
+        {/* Date Filter */}
+        {!isComparisonMode && (
+          <ClientAnalyticsFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={handleEndDateChange}
+            selectedClient={selectedClient}
+            onClientChange={handleClientChange}
+            productFilter={productFilter}
+            onProductFilterChange={setProductFilter}
+            campaignFilter={campaignFilter}
+            onCampaignFilterChange={setCampaignFilter}
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            mediumFilter={mediumFilter}
+            onMediumFilterChange={setMediumFilter}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onClearAll={handleClearAllFilters}
+            availableProducts={availableProducts}
+            availableCampaigns={availableCampaigns}
+            availableSources={availableSources}
+            availableMediums={availableMediums}
+            isExpanded={isFilterExpanded}
+            onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          />
+        )}
+
+        {/* Comparison Filter Component */}
+        <ClientAnalyticsComparisonFilter
+          isComparisonMode={isComparisonMode}
+          onComparisonModeChange={setIsComparisonMode}
+          filterSetA={filterSetA}
+          filterSetB={filterSetB}
+          onFilterSetAChange={setFilterSetA}
+          onFilterSetBChange={setFilterSetB}
           availableProducts={availableProducts}
           availableCampaigns={availableCampaigns}
           availableSources={availableSources}
           availableMediums={availableMediums}
-          isExpanded={isFilterExpanded}
-          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          isExpanded={isComparisonExpanded}
+          onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
         />
 
-        {/* Client Summary Cards */}
-        <Grid container spacing={3} sx={{ mb: 6 }}>
-          {clients.map((client) => {
-            const summary = summaries[client];
-            if (!summary) return null;
+        {/* Comparison Charts */}
+        {isComparisonMode && (
+          <ClientAnalyticsComparisonChart
+            title="Performance Comparison"
+            data={getComparisonData()}
+            filterSetAName="Filter Set A"
+            filterSetBName="Filter Set B"
+            isExpanded={isComparisonExpanded}
+            onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
+          />
+        )}
 
-            return (
-              <Grid item xs={12} md={4} key={client}>
-                <Card sx={{
+        {/* Client Summary Cards (only when not in comparison mode) */}
+        {!isComparisonMode && (
+          <Grid container spacing={3} sx={{ mb: 6 }}>
+            {clients.map(client => {
+              const summary = summaries[client];
+              if (!summary) return null;
+
+              return (
+                <Grid item xs={12} md={4} key={client}>
+                  <Card sx={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    position: 'relative',
+                    overflow: 'hidden',
+                  }}>
+                    <Box sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height: '4px',
+                      background: getClientGradient(client),
+                    }} />
+                    <CardContent sx={{ p: 4 }}>
+                      <Box sx={{ textAlign: 'center', mb: 3 }}>
+                        <Typography variant="h4" sx={{ 
+                          fontWeight: 700, 
+                          mb: 1,
+                          background: getClientGradient(client),
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent'
+                        }}>
+                          {client}
+                        </Typography>
+                      </Box>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h5" sx={{ color: '#10b981', fontWeight: 700 }}>
+                              {formatCurrency(summary.totalRevenue)}
+                            </Typography>
+                            <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
+                              Revenue
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h5" sx={{ color: '#f59e0b', fontWeight: 700 }}>
+                              {formatCurrency(summary.totalCommission)}
+                            </Typography>
+                            <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
+                              Commission
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h5" sx={{ color: '#f8fafc', fontWeight: 700 }}>
+                              {summary.totalSales}
+                            </Typography>
+                            <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
+                              Sales
+                            </Typography>
+                          </Box>
+                        </Grid>
+                        <Grid item xs={6}>
+                          <Box sx={{ textAlign: 'center' }}>
+                            <Typography variant="h5" sx={{ color: '#06b6d4', fontWeight: 700 }}>
+                              {summary.uniqueCampaigns}
+                            </Typography>
+                            <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
+                              Campaigns
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      </Grid>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+
+        {/* Breakdown Tables */}
+        {!isComparisonMode && (
+          <>
+            {clients.map(client => {
+              const breakdown = getFilteredBreakdowns()[client];
+              if (!breakdown) return null;
+
+              return (
+                <Card key={client} sx={{
                   background: 'rgba(255, 255, 255, 0.05)',
                   backdropFilter: 'blur(10px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   borderRadius: '16px',
-                  position: 'relative',
-                  overflow: 'hidden',
+                  mb: 4,
                 }}>
-                  <Box sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: '4px',
-                    background: getClientGradient(client),
-                  }} />
-                  
-                  <CardContent sx={{ p: 3 }}>
+                  <CardContent sx={{ p: 4 }}>
                     <Typography variant="h5" sx={{ 
                       fontWeight: 700, 
                       mb: 3,
@@ -251,208 +530,113 @@ const ClientAnalyticsSummaries = () => {
                       WebkitBackgroundClip: 'text',
                       WebkitTextFillColor: 'transparent'
                     }}>
-                      {client}
+                      {client} - Top Campaigns
                     </Typography>
                     
-                    <Grid container spacing={2}>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="h4" sx={{ 
-                            fontWeight: 700, 
-                            mb: 1,
-                            background: 'linear-gradient(45deg, #10b981, #3b82f6)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
-                          }}>
-                            {summary.totalSales}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                            Total Sales
-                          </Typography>
-                        </Box>
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="h6" sx={{ color: '#94a3b8', mb: 2 }}>
+                          Top Sources
+                        </Typography>
+                        <TableContainer component={Paper} sx={{ 
+                          background: 'transparent',
+                          boxShadow: 'none',
+                        }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Source</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {sortByRevenue(breakdown.utm_source).map(([source, data]) => (
+                                <TableRow key={source}>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{source}</TableCell>
+                                  <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                                    {formatCurrency(data.revenue)}
+                                  </TableCell>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
                       </Grid>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="h4" sx={{ 
-                            fontWeight: 700, 
-                            mb: 1,
-                            background: 'linear-gradient(45deg, #f59e0b, #ef4444)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
-                          }}>
-                            {formatCurrency(summary.totalRevenue)}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                            Total Revenue
-                          </Typography>
-                        </Box>
+                      
+                      <Grid item xs={12} md={6}>
+                        <Typography variant="h6" sx={{ color: '#94a3b8', mb: 2 }}>
+                          Top Mediums
+                        </Typography>
+                        <TableContainer component={Paper} sx={{ 
+                          background: 'transparent',
+                          boxShadow: 'none',
+                        }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Medium</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {sortByRevenue(breakdown.utm_medium).map(([medium, data]) => (
+                                <TableRow key={medium}>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{medium}</TableCell>
+                                  <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                                    {formatCurrency(data.revenue)}
+                                  </TableCell>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
                       </Grid>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="h4" sx={{ 
-                            fontWeight: 700, 
-                            mb: 1,
-                            background: 'linear-gradient(45deg, #8b5cf6, #ec4899)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
-                          }}>
-                            {formatCurrency(summary.totalCommission)}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                            Total Commission
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Box sx={{ textAlign: 'center' }}>
-                          <Typography variant="h4" sx={{ 
-                            fontWeight: 700, 
-                            mb: 1,
-                            background: 'linear-gradient(45deg, #06b6d4, #a21caf)',
-                            WebkitBackgroundClip: 'text',
-                            WebkitTextFillColor: 'transparent'
-                          }}>
-                            {summary.uniqueCampaigns}
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#94a3b8' }}>
-                            Unique Campaigns
-                          </Typography>
-                        </Box>
+                      
+                      <Grid item xs={12}>
+                        <Typography variant="h6" sx={{ color: '#94a3b8', mb: 2 }}>
+                          Top Products
+                        </Typography>
+                        <TableContainer component={Paper} sx={{ 
+                          background: 'transparent',
+                          boxShadow: 'none',
+                        }}>
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Product</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Sales</TableCell>
+                                <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {sortByRevenue(breakdown.product || {}).map(([product, data]) => (
+                                <TableRow key={product}>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{product}</TableCell>
+                                  <TableCell sx={{ color: '#10b981', fontWeight: 600 }}>
+                                    {formatCurrency(data.revenue)}
+                                  </TableCell>
+                                  <TableCell sx={{ color: '#f8fafc' }}>{data.sales}</TableCell>
+                                  <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
+                                    {formatCurrency(data.commission)}
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
                       </Grid>
                     </Grid>
                   </CardContent>
                 </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-
-        {/* Top Performers Section */}
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={6}>
-            <Card sx={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px',
-            }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 600, 
-                  mb: 3,
-                  color: '#f8fafc'
-                }}>
-                  🏆 Top Revenue Sources
-                </Typography>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Source</TableCell>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Revenue</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {clients.map((client) => {
-                        const breakdown = breakdowns[client];
-                        if (!breakdown?.utm_source) return null;
-                        
-                        return sortByRevenue(breakdown.utm_source).map(([source, data], index) => (
-                          <TableRow key={`${client}-${source}`} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                            <TableCell>
-                              <Chip 
-                                label={`#${index + 1}`} 
-                                size="small"
-                                sx={{ 
-                                  background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                         index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                         index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                         'rgba(255, 255, 255, 0.1)',
-                                  color: 'white',
-                                  fontWeight: 600,
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                              {source}
-                            </TableCell>
-                            <TableCell sx={{ color: '#f59e0b', fontWeight: 600 }}>
-                              {formatCurrency(data.revenue)}
-                            </TableCell>
-                          </TableRow>
-                        ));
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          <Grid item xs={12} md={6}>
-            <Card sx={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '16px',
-            }}>
-              <CardContent>
-                <Typography variant="h6" sx={{ 
-                  fontWeight: 600, 
-                  mb: 3,
-                  color: '#f8fafc'
-                }}>
-                  💰 Top Commission Earners
-                </Typography>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ background: 'rgba(255, 255, 255, 0.02)' }}>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Rank</TableCell>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Campaign</TableCell>
-                        <TableCell sx={{ color: '#94a3b8', fontWeight: 600 }}>Commission</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {clients.map((client) => {
-                        const breakdown = breakdowns[client];
-                        if (!breakdown?.utm_campaign) return null;
-                        
-                        return sortByRevenue(breakdown.utm_campaign).map(([campaign, data], index) => (
-                          <TableRow key={`${client}-${campaign}`} sx={{ '&:hover': { background: 'rgba(255, 255, 255, 0.02)' } }}>
-                            <TableCell>
-                              <Chip 
-                                label={`#${index + 1}`} 
-                                size="small"
-                                sx={{ 
-                                  background: index === 0 ? 'linear-gradient(45deg, #fbbf24, #f59e0b)' : 
-                                         index === 1 ? 'linear-gradient(45deg, #9ca3af, #6b7280)' :
-                                         index === 2 ? 'linear-gradient(45deg, #cd7f32, #b8860b)' :
-                                         'rgba(255, 255, 255, 0.1)',
-                                  color: 'white',
-                                  fontWeight: 600,
-                                }}
-                              />
-                            </TableCell>
-                            <TableCell sx={{ color: '#f8fafc', fontWeight: 500 }}>
-                              {campaign}
-                            </TableCell>
-                            <TableCell sx={{ color: '#8b5cf6', fontWeight: 600 }}>
-                              {formatCurrency(data.commission)}
-                            </TableCell>
-                          </TableRow>
-                        ));
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
+              );
+            })}
+          </>
+        )}
       </Box>
     </Box>
   );

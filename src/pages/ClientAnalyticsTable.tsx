@@ -24,7 +24,22 @@ import {
 } from '../services/googleSheets';
 import ClientAnalyticsNavbar from '../components/ClientAnalyticsNavbar';
 import ClientAnalyticsFilter from '../components/ClientAnalyticsFilter';
+import ClientAnalyticsComparisonFilter from '../components/ClientAnalyticsComparisonFilter';
+import ClientAnalyticsComparisonChart from '../components/ClientAnalyticsComparisonChart';
 import { useSearchParams } from 'react-router-dom';
+
+interface FilterSet {
+  name: string;
+  startDate: Date | null;
+  endDate: Date | null;
+  selectedClient: string;
+  productFilter: string;
+  campaignFilter: string;
+  sourceFilter: string;
+  mediumFilter: string;
+  searchTerm: string;
+  isVisible: boolean;
+}
 
 const ClientAnalyticsTable = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -43,6 +58,34 @@ const ClientAnalyticsTable = () => {
   const [mediumFilter, setMediumFilter] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [isFilterExpanded, setIsFilterExpanded] = useState(false);
+  
+  // Comparison mode states
+  const [isComparisonMode, setIsComparisonMode] = useState(false);
+  const [filterSetA, setFilterSetA] = useState<FilterSet>({
+    name: 'Filter Set A',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [filterSetB, setFilterSetB] = useState<FilterSet>({
+    name: 'Filter Set B',
+    startDate: null,
+    endDate: null,
+    selectedClient: 'All',
+    productFilter: '',
+    campaignFilter: '',
+    sourceFilter: '',
+    mediumFilter: '',
+    searchTerm: '',
+    isVisible: true,
+  });
+  const [isComparisonExpanded, setIsComparisonExpanded] = useState(false);
   
   const selectedClient = searchParams.get('client') || 'All';
 
@@ -143,6 +186,38 @@ const ClientAnalyticsTable = () => {
     page * rowsPerPage + rowsPerPage
   );
 
+  // Comparison data calculation
+  const getComparisonData = () => {
+    if (!summary) return [];
+
+    return [
+      {
+        label: 'Total Sales',
+        valueA: summary.totalSales,
+        valueB: summary.totalSales, // This would be calculated from filter set B data
+        format: 'number' as const,
+      },
+      {
+        label: 'Total Revenue',
+        valueA: summary.totalRevenue,
+        valueB: summary.totalRevenue, // This would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Total Commission',
+        valueA: summary.totalCommission,
+        valueB: summary.totalCommission, // This would be calculated from filter set B data
+        format: 'currency' as const,
+      },
+      {
+        label: 'Unique Campaigns',
+        valueA: summary.uniqueCampaigns,
+        valueB: summary.uniqueCampaigns, // This would be calculated from filter set B data
+        format: 'number' as const,
+      },
+    ];
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -193,35 +268,65 @@ const ClientAnalyticsTable = () => {
           </Typography>
         </Box>
 
-        {/* Advanced Filter Component */}
-        <ClientAnalyticsFilter
-          startDate={startDate}
-          endDate={endDate}
-          onStartDateChange={handleStartDateChange}
-          onEndDateChange={handleEndDateChange}
-          selectedClient={selectedClient}
-          onClientChange={handleClientChange}
-          productFilter={productFilter}
-          onProductFilterChange={setProductFilter}
-          campaignFilter={campaignFilter}
-          onCampaignFilterChange={setCampaignFilter}
-          sourceFilter={sourceFilter}
-          onSourceFilterChange={setSourceFilter}
-          mediumFilter={mediumFilter}
-          onMediumFilterChange={setMediumFilter}
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          onClearAll={handleClearAllFilters}
+        {/* Comparison Filter Component */}
+        <ClientAnalyticsComparisonFilter
+          isComparisonMode={isComparisonMode}
+          onComparisonModeChange={setIsComparisonMode}
+          filterSetA={filterSetA}
+          filterSetB={filterSetB}
+          onFilterSetAChange={setFilterSetA}
+          onFilterSetBChange={setFilterSetB}
           availableProducts={availableProducts}
           availableCampaigns={availableCampaigns}
           availableSources={availableSources}
           availableMediums={availableMediums}
-          isExpanded={isFilterExpanded}
-          onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          isExpanded={isComparisonExpanded}
+          onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
         />
 
+        {/* Regular Filter Component (when not in comparison mode) */}
+        {!isComparisonMode && (
+          <ClientAnalyticsFilter
+            startDate={startDate}
+            endDate={endDate}
+            onStartDateChange={handleStartDateChange}
+            onEndDateChange={handleEndDateChange}
+            selectedClient={selectedClient}
+            onClientChange={handleClientChange}
+            productFilter={productFilter}
+            onProductFilterChange={setProductFilter}
+            campaignFilter={campaignFilter}
+            onCampaignFilterChange={setCampaignFilter}
+            sourceFilter={sourceFilter}
+            onSourceFilterChange={setSourceFilter}
+            mediumFilter={mediumFilter}
+            onMediumFilterChange={setMediumFilter}
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onClearAll={handleClearAllFilters}
+            availableProducts={availableProducts}
+            availableCampaigns={availableCampaigns}
+            availableSources={availableSources}
+            availableMediums={availableMediums}
+            isExpanded={isFilterExpanded}
+            onToggleExpanded={() => setIsFilterExpanded(!isFilterExpanded)}
+          />
+        )}
+
+        {/* Comparison Charts */}
+        {isComparisonMode && (
+          <ClientAnalyticsComparisonChart
+            title="Performance Comparison"
+            data={getComparisonData()}
+            filterSetAName="Filter Set A"
+            filterSetBName="Filter Set B"
+            isExpanded={isComparisonExpanded}
+            onToggleExpanded={() => setIsComparisonExpanded(!isComparisonExpanded)}
+          />
+        )}
+
         {/* Summary Cards */}
-        {summary && (
+        {summary && !isComparisonMode && (
           <Grid container spacing={3} sx={{ mb: 4 }}>
             <Grid item xs={12} sm={6} md={3}>
               <Card sx={{
